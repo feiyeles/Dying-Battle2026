@@ -31,9 +31,9 @@
 	}
 
 	#editor-mode {
-		display: flex;
-		background-color: #000;
-	}
+    display: none; /* ✨ 初始必定隐藏，防闪烁 */
+    background-color: #000;
+}
 
 	.sidebar {
 		width: 300px;
@@ -801,7 +801,7 @@
 				<button class="nav-btn" style="background:#2b5797; border-color:#4b8bdf;" onclick="loadFromCloud()" title="从云端读取">☁️ 读取</button>
 				<button class="nav-btn" style="background:#444; border-color:#666;" onclick="openCloudSettings()" title="云端设置">⚙️</button>
 			</div>
-<button class="nav-btn" style="background:#552288; border-color:#8844ff;" onclick="openModal('全局 UI 与动画设置', 'ui_sfx', 'ui')" title="配置菜单音效与回合转场动画">✨ UI与动画</button>
+<button class="nav-btn" style="background:#552288; border-color:#8844ff;" onclick="openModal('全局 UI 与动画设置', 'ui_sfx', 'ui')" title="配置菜单音效与回合转场动画">⚙️ 项目与UI设置</button>
 			<button class="nav-btn" onclick="undo()">↩️ 撤销 (Ctrl+Z)</button> 
 			<button class="nav-btn" onclick="triggerImport()" title="导入JSON文件">📥 导入</button>
 			<input type="file" id="import-file" accept=".json" style="display: none;" onchange="importJSON(event)">
@@ -936,7 +936,7 @@
 		
 		<div id="boot-errors" style="width: 400px; max-height: 150px; overflow-y: auto; color: #ff4444; font-size: 13px; background: rgba(255,0,0,0.1); padding: 10px; border-left: 3px solid #ff4444; display: none; margin-bottom: 20px; line-height: 1.5;"></div>
 		
-		<button id="boot-force-btn" style="display:none; background: #aa0000; color: white; border: 1px solid #ff4444; padding: 10px 30px; font-weight: bold; cursor: pointer; font-size: 16px; border-radius: 4px; transition: 0.2s;">⚠️ 忽略错误，强行启动</button>
+		<button id="boot-force-btn" style="display:none; background: #555; color: white; border: 1px solid #aaa; padding: 10px 30px; font-weight: bold; cursor: pointer; font-size: 16px; border-radius: 4px; transition: 0.2s; margin-bottom: 20px;">⏭️ 跳过预加载强行启动</button>
 	</div>
 	<div id="dev-console" style="display: none;">
         <div class="dev-header">
@@ -1016,6 +1016,8 @@
 </div>
 
 <script>
+
+     
 	/* ----------------------------------
 	   1. 底层数据对象库
 	   ---------------------------------- */
@@ -1038,6 +1040,164 @@
 	field: [],     // 场上存活或刚死掉的怪（最多5个），数据结构: { name, hp, maxHp, id }
 	inventory: {}
 };
+    // 🌟 全局项目配置 (带本地缓存初始化)
+	let projectSettings = { serverPrefix: "", readMode: "cloud_first" }; 
+	try {
+		const savedProjSettings = localStorage.getItem('rpg_project_settings');
+		if (savedProjSettings) projectSettings = Object.assign(projectSettings, JSON.parse(savedProjSettings));
+	} catch (e) { console.warn("读取全局设置失败", e); }
+
+    // 🌟 全局资源路径解析器 (读取模式接管版)
+	function getAssetUrl(resName) {
+		if (!resName) return "";
+		if (battleRuntime.assetCache && battleRuntime.assetCache[resName]) return battleRuntime.assetCache[resName];
+
+		const resObj = editorData.resource[resName];
+		if (resObj) {
+			let local = resObj.localPath;
+			let server = (resObj.useServer && projectSettings.serverPrefix && resObj.localPath) ? projectSettings.serverPrefix + resObj.localPath : null;
+			let fallback = resObj.fallbackUrl || resObj.url;
+			let mode = projectSettings.readMode || 'local_first';
+
+			// 按模式直接返回最高优先级的有效链接
+			if (mode === 'cloud_first') return fallback || server || local || "";
+			if (mode === 'local_first') return local || server || fallback || "";
+			if (mode === 'cloud_only') return fallback || server || "";
+			if (mode === 'local_only') return local || "";
+		}
+		
+		if (resName.startsWith('http') || resName.startsWith('data:') || resName.includes('/')) return resName;
+		return "";
+	}
+	
+	// 🌟 原生 DOM 级媒体探针 (探测文件存不存在，完美绕过 Fetch CORS)
+	function testAssetLoad(url, type) {
+		return new Promise((resolve, reject) => {
+			if (!url) return reject();
+			let timeout = setTimeout(() => reject(new Error('Timeout')), 6000); // 6秒超时防御
+			
+			if (type === 'image') {
+				const img = new Image();
+				img.onload = () => { clearTimeout(timeout); resolve(url); };
+				img.onerror = () => { clearTimeout(timeout); reject(); };
+				img.src = url;
+			} else if (type === 'audio') {
+				const audio = new Audio();
+                // 探测到元数据就证明文件存在且可读
+				audio.onloadedmetadata = () => { clearTimeout(timeout); resolve(url); };
+				audio.onerror = () => { clearTimeout(timeout); reject(); };
+				audio.src = url;
+			} else if (type === 'video') {
+				const video = document.createElement('video');
+				video.muted = true; // 必须静音，防止浏览器策略拦截
+				video.onloadedmetadata = () => { clearTimeout(timeout); resolve(url); };
+				video.onerror = () => { clearTimeout(timeout); reject(); };
+				video.src = url;
+			} else {
+				clearTimeout(timeout); resolve(url);
+			}
+		});
+	}
+
+    // 🌟 预加载核心引擎 (自动搜集当前关卡全部资源并下载)
+async function executePreload(levelName, updateProgressCallback, checkSkipCallback) {
+		devLog(`[预加载] 🚀 开始预加载关卡资源: ${levelName}`, 'sys');
+		const lvlData = editorData.level[levelName];
+		if (!lvlData) return;
+
+		let resourceSet = new Set();
+		const addRes = (resName) => { if (resName && editorData.resource[resName]) resourceSet.add(resName); };
+
+		addRes(lvlData.bgm); addRes(lvlData.background); addRes(lvlData.startCG); addRes(lvlData.loadingBg);
+
+		if (lvlData.player && editorData.character[lvlData.player]) {
+			const p = editorData.character[lvlData.player];
+			addRes(p.introAnim); addRes(p.idleAnim); addRes(p.turnIdleAnim); addRes(p.skillSelectIdleAnim);
+			addRes(p.itemIdleAnim); addRes(p.prepareIdleAnim); addRes(p.attackAnim); addRes(p.hitAnim);
+			addRes(p.dodgeAnim); addRes(p.normalAttackSfx); addRes(p.atkHitEffect);
+			if (p.skills_with_config) { p.skills_with_config.forEach(sk => { addRes(sk.cg); addRes(sk.anim); if (editorData.skill[sk.name]) { addRes(editorData.skill[sk.name].sfx); addRes(editorData.skill[sk.name].hitEffect); } }); }
+		}
+
+		if (lvlData.enemies) {
+			lvlData.enemies.forEach(eName => {
+				const e = editorData.enemy[eName];
+				if (e) {
+					addRes(e.introAnim); addRes(e.idleAnim); addRes(e.attackAnim); addRes(e.hitAnim); addRes(e.deathAnim);
+					addRes(e.normalAttackSfx); addRes(e.atkHitEffect); addRes(e.executeAnim); addRes(e.executeCG);
+					addRes(e.executeSfx); addRes(e.executeIdleAnim);
+					if (e.skills_with_weights) { e.skills_with_weights.forEach(sk => { addRes(sk.anim); if (editorData.skill[sk.name]) { addRes(editorData.skill[sk.name].sfx); addRes(editorData.skill[sk.name].hitEffect); } }); }
+				}
+			});
+		}
+
+		if (editorData.uiSfx) Object.values(editorData.uiSfx).forEach(val => addRes(val));
+
+		const resourcesToLoad = Array.from(resourceSet);
+		const total = resourcesToLoad.length;
+
+		if (total === 0) { updateProgressCallback(100, '无需额外加载'); return; }
+
+		for (let i = 0; i < total; i++) {
+			if (checkSkipCallback && checkSkipCallback()) { devLog(`[系统] 用户强行跳过了预加载！`, 'warn'); break; }
+			const resName = resourcesToLoad[i];
+			updateProgressCallback(Math.floor((i / total) * 100), resName);
+			await loadAssetWithFallback(resName); 
+		}
+		updateProgressCallback(100, '所有资源就绪！');
+	}
+
+    // 🌟 三级跳保险机制资源加载器
+	
+// 🌟 三级跳保险机制资源加载器 (智能模式过滤版)
+	async function loadAssetWithFallback(resName) {
+		if (battleRuntime.assetCache && battleRuntime.assetCache[resName]) return battleRuntime.assetCache[resName];
+		
+		const resObj = editorData.resource[resName];
+		if (!resObj) { devLog(`[预加载] ⚠️ 资源未配置: ${resName}`, 'warn'); return null; }
+
+		let urlsToTry = [];
+		let local = resObj.localPath;
+		let server = (resObj.useServer && projectSettings.serverPrefix && resObj.localPath) ? projectSettings.serverPrefix + resObj.localPath : null;
+		let fallback = resObj.fallbackUrl || resObj.url;
+		let mode = projectSettings.readMode || 'local_first';
+
+		// ⚖️ 核心算法：根据读取模式重新排兵布阵！
+		if (mode === 'cloud_first') {
+			if (fallback) urlsToTry.push(fallback);
+			if (server) urlsToTry.push(server);
+			if (local) urlsToTry.push(local);
+		} else if (mode === 'local_first') {
+			if (local) urlsToTry.push(local);
+			if (server) urlsToTry.push(server);
+			if (fallback) urlsToTry.push(fallback);
+		} else if (mode === 'cloud_only') {
+			if (fallback) urlsToTry.push(fallback);
+			if (server) urlsToTry.push(server);
+		} else if (mode === 'local_only') {
+			if (local) urlsToTry.push(local);
+		}
+
+		// 去重并过滤掉没配置的空链接
+		urlsToTry = [...new Set(urlsToTry.filter(u => u))];
+
+		for (let url of urlsToTry) {
+			try {
+				devLog(`[预加载] ⏳ 探针测试: ${url}`, 'sys');
+				const validUrl = await testAssetLoad(url, resObj.type);
+				
+				if (!battleRuntime.assetCache) battleRuntime.assetCache = {};
+				battleRuntime.assetCache[resName] = validUrl; 
+				
+				devLog(`[预加载] ✅ 资源就绪: ${resName}`, 'info');
+				return validUrl;
+			} catch (e) {
+				devLog(`[预加载] ⚠️ 链路失效 (${url})，尝试下一策略...`, 'warn');
+			}
+		}
+		
+		devLog(`[预加载] ❌ 彻底失败，当前模式 [${mode}] 下无可用资源: ${resName}`, 'error');
+		return null;
+	}
 
 // ==========================================
     // ✨ 开发者控制台核心逻辑
@@ -1301,6 +1461,8 @@
 	   ========================================================= */
 	let engineSettings = { bgmVolume: 0.4, sfxVolume: 0.6, turnWaitMode: 'enemy' }; // 默认设为仅敌人回合
 
+	battleRuntime.assetCache = {};
+
 	// 加载与保存设置
 	function loadEngineSettings() {
 		const saved = localStorage.getItem('rpg_engine_settings');
@@ -1528,75 +1690,65 @@
 		openModal('云端同步设置 (GitHub Gist)', 'cloud_settings', 'cloud');
 	}
 	
-	// 智能媒体渲染器：根据后缀返回 <img> 或 <video>，支持控制循环和卡最后一帧
-    function renderMediaTag(url, extraClass = "", isLoop = true, jumpToEnd = false) {
-        if (!url) {
-            devLog(`[资源缺失] 某个实体未配置媒体链接 (url为空)`, 'error'); 
-            return ""; 
-        }
+	// 🌟 智能媒体渲染器 (完美接入0延迟缓存池)
+	function renderMediaTag(resName, extraClass = "", isLoop = true, jumpToEnd = false) {
+		let finalUrl = getAssetUrl(resName);
+		if (!finalUrl) return ""; 
 
-        const lowerUrl = url.toLowerCase();
-        const isVideo = lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.webm') || lowerUrl.endsWith('.mov');
-        
-        if (isVideo) {
-            if (jumpToEnd) {
-                // ✨ 核心机制 1：已经死透的敌人，直接把进度条拉到最后一帧并暂停！
-                return `<video src="${url}#t=999" class="media-content ${extraClass}" preload="auto" muted playsinline onloadedmetadata="this.currentTime = 999; this.pause();"></video>`;
-            } else {
-                // ✨ 核心机制 2：根据 isLoop 决定是否加 loop 属性，如果不加，播完后执行 onended 暂停在最后一帧
-                const loopAttr = isLoop ? 'loop' : '';
-                return `<video src="${url}" class="media-content ${extraClass}" autoplay ${loopAttr} muted playsinline onended="this.pause()"></video>`;
-            }
-        } else {
-            // 图片天然就是卡住的，直接返回 img 标签即可
-            return `<img src="${url}" class="media-content ${extraClass}" alt="animation">`;
-        }
-    }
+		const lowerUrl = finalUrl.toLowerCase();
+		const isVideo = lowerUrl.endsWith('.mp4') || lowerUrl.endsWith('.webm') || lowerUrl.endsWith('.mov');
+		
+		if (isVideo) {
+			if (jumpToEnd) return `<video src="${finalUrl}#t=999" class="media-content ${extraClass}" preload="auto" muted playsinline onloadedmetadata="this.currentTime = 999; this.pause();"></video>`;
+			const loopAttr = isLoop ? 'loop' : '';
+			return `<video src="${finalUrl}" class="media-content ${extraClass}" autoplay ${loopAttr} muted playsinline onended="this.pause()"></video>`;
+		} else {
+			return `<img src="${finalUrl}" class="media-content ${extraClass}" alt="animation">`;
+		}
+	}
 	
-	// 🌟 新增：独立并发音效播放器 (允许重叠播放)
-	function playSFX(sfxName) {
-        if (!isTestModeActive) return; // 🛑 拦截幽灵进程：退出了就不许出声！
-		if (!sfxName) return;
-		const res = editorData.resource[sfxName];
-		if (res && res.type === 'audio') {
-			const audio = new Audio(res.url);
+	// 🌟 独立并发音效播放器 (接入缓存池版)
+	function playSFX(resName) {
+		if (!isTestModeActive || !resName) return;
+		let finalUrl = getAssetUrl(resName);
+		if (finalUrl) {
+			const audio = new Audio(finalUrl);
 			audio.volume = engineSettings.sfxVolume; 
 			audio.play().catch(e => devLog(`[音频] SFX播放失败: ${e}`, 'warn'));
 		}
 	}
 	
-	// 🌟 新增：全屏大招 CG 与 透明转场播放器 (阻塞型)
-	function playFullscreenCG(url) {
-        if (!isTestModeActive) return Promise.resolve(); 
-
+	// 🌟 全屏大招 CG 与 透明转场播放器 (接入缓存池版)
+	function playFullscreenCG(resName) {
+		if (!isTestModeActive) return Promise.resolve(); 
 		return new Promise((resolve) => {
-			if (!url) return resolve();
-            
-            devLog(`[全屏演出] 触发透明CG/转场动画: ${url}`, 'anim'); // ✨ 向控制台汇报动画外链
-			
+			let finalUrl = getAssetUrl(resName);
+			if (!finalUrl) return resolve();
+
+			devLog(`[全屏演出] 触发透明CG/转场动画: ${resName}`, 'anim'); 
 			const cgContainer = document.createElement('div');
 			cgContainer.style.position = 'absolute'; cgContainer.style.top = '0'; cgContainer.style.left = '0';
 			cgContainer.style.width = '100%'; cgContainer.style.height = '100%';
 			cgContainer.style.backgroundColor = 'transparent'; 
-            cgContainer.style.pointerEvents = 'none'; 
+			cgContainer.style.pointerEvents = 'none'; 
 			cgContainer.style.zIndex = '100'; 
 			cgContainer.style.display = 'flex'; cgContainer.style.justifyContent = 'center'; cgContainer.style.alignItems = 'center';
 			
-			const isVideo = url.toLowerCase().match(/\.(mp4|webm|mov)$/);
+			const isVideo = finalUrl.toLowerCase().match(/\.(mp4|webm|mov)$/);
 			if (isVideo) {
-				cgContainer.innerHTML = `<video src="${url}" autoplay playsinline style="width:100%; height:100%; object-fit:contain;"></video>`;
+				cgContainer.innerHTML = `<video src="${finalUrl}" autoplay playsinline style="width:100%; height:100%; object-fit:contain;"></video>`;
 				const vid = cgContainer.querySelector('video');
 				vid.volume = engineSettings.sfxVolume;
 				vid.onended = () => { cgContainer.remove(); resolve(); };
-				vid.onerror = () => { devLog(`[CG报错] 无法播放CG: ${url}`, 'error'); cgContainer.remove(); resolve(); };
+				vid.onerror = () => { devLog(`[CG报错] 无法播放CG: ${finalUrl}`, 'error'); cgContainer.remove(); resolve(); };
 			} else {
-                const img = document.createElement('img');
-                img.src = url; img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'contain'; 
-                cgContainer.appendChild(img);
-                img.animate([
-                    { opacity: 0, transform: 'scale(1.1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.15 },
-                    { opacity: 1, transform: 'scale(1)', offset: 0.85 }, { opacity: 0, transform: 'scale(0.95)' }
-                ], { duration: 1500, easing: 'ease-in-out' }).onfinish = () => { cgContainer.remove(); resolve(); };
+				const img = document.createElement('img');
+				img.src = finalUrl; img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'contain'; 
+				cgContainer.appendChild(img);
+				img.animate([
+					{ opacity: 0, transform: 'scale(1.1)' }, { opacity: 1, transform: 'scale(1)', offset: 0.15 },
+					{ opacity: 1, transform: 'scale(1)', offset: 0.85 }, { opacity: 0, transform: 'scale(0.95)' }
+				], { duration: 1500, easing: 'ease-in-out' }).onfinish = () => { cgContainer.remove(); resolve(); };
 			}
 			document.getElementById('game-scene').appendChild(cgContainer);
 		});
@@ -1604,73 +1756,55 @@
 	
 	
 	
-	// 🌟 终极重构：独立受击特效发生器 (物理坐标对齐版)
-	function spawnHitEffect(targetIdx, effectUrl, isPlayerTarget = false) {
-		if (!effectUrl) return;
+	// 🌟 独立受击特效发生器 (接入缓存池版)
+	function spawnHitEffect(targetIdx, resName, isPlayerTarget = false) {
+		let finalUrl = getAssetUrl(resName);
+		if (!finalUrl) return;
 
-        const stage = document.getElementById('battle-stage');
-        if (!stage) return;
+		const stage = document.getElementById('battle-stage');
+		if (!stage) return;
 
-        // 创建特效容器
 		const effectDiv = document.createElement('div');
-		effectDiv.style.position = 'absolute';
-		effectDiv.style.pointerEvents = 'none'; 
-		effectDiv.style.zIndex = '180'; // 位于人物上方，爆字下方
-        effectDiv.style.display = 'flex';
-        effectDiv.style.justifyContent = 'center';
-        effectDiv.style.alignItems = 'center';
+		effectDiv.style.position = 'absolute'; effectDiv.style.pointerEvents = 'none'; effectDiv.style.zIndex = '180'; 
+		effectDiv.style.display = 'flex'; effectDiv.style.justifyContent = 'center'; effectDiv.style.alignItems = 'center';
 
-        // --- ✨ 核心逻辑：精准计算特效应该出现在哪 ---
-        let centerX, centerY, effectSize;
-        const stageRect = stage.getBoundingClientRect();
+		let centerX, centerY, effectSize;
+		const stageRect = stage.getBoundingClientRect();
 
-        if (isPlayerTarget) {
-            // 1. 目标是玩家：取玩家立绘的中心
-            const pEl = document.getElementById('player');
-            const rect = pEl.getBoundingClientRect();
-            centerX = (rect.left + rect.width * 0.2) - stageRect.left; // 偏左一点，正好在立绘身上
-            centerY = (rect.top + rect.height * 0.5) - stageRect.top;
-            effectSize = '500px'; // 玩家个头大，特效也大
-        } 
-        else if (targetIdx !== null) {
-            // 2. 目标是单体敌人：取该敌人的物理中心
-            const eEl = document.getElementById(`test-enemy-${targetIdx}`);
-            if (!eEl) return;
-            const rect = eEl.getBoundingClientRect();
-            centerX = (rect.left + rect.width * -0.5) - stageRect.left;
-            centerY = (rect.top + rect.height * 0.5) - stageRect.top;
-            effectSize = '400px'; // 扩大容器，防止切边
-        } 
-        else {
-            // 3. ✨ 目标是全体敌人：取敌人容器(test-enemies-container)的中心！
-            // 这样特效就会正好炸在敌人群体中央，而不是屏幕中央。
-            const eContainer = document.getElementById('test-enemies-container');
-            const rect = eContainer.getBoundingClientRect();
-            centerX = (rect.left + rect.width * 0.7) - stageRect.left;
-            centerY = (rect.top + rect.height * 1.0) - stageRect.top;
-            effectSize = '50vw'; // 全体攻击，特效拉满全屏
-        }
-
-        // 设置容器位置和大小
-        effectDiv.style.left = `${centerX}px`;
-        effectDiv.style.top = `${centerY}px`;
-        effectDiv.style.width = effectSize;
-        effectDiv.style.height = effectSize;
-        effectDiv.style.transform = 'translate(-50%, -50%)'; // 居中对齐
-
-		const isVideo = effectUrl.toLowerCase().match(/\.(mp4|webm|mov)$/);
-		if (isVideo) {
-            // 这里的 object-fit: contain 保证了视频不会被拉伸变形
-			effectDiv.innerHTML = `<video src="${effectUrl}" autoplay muted playsinline style="width:100%; height:100%; object-fit:contain;"></video>`;
-			const vid = effectDiv.querySelector('video');
-            vid.volume = engineSettings.sfxVolume; // 再次确保音量受控
-			vid.onended = () => effectDiv.remove();
+		if (isPlayerTarget) {
+			const pEl = document.getElementById('player');
+			const rect = pEl.getBoundingClientRect();
+			centerX = (rect.left + rect.width * 0.2) - stageRect.left; 
+			centerY = (rect.top + rect.height * 0.5) - stageRect.top;
+			effectSize = '500px'; 
+		} else if (targetIdx !== null) {
+			const eEl = document.getElementById(`test-enemy-${targetIdx}`);
+			if (!eEl) return;
+			const rect = eEl.getBoundingClientRect();
+			centerX = (rect.left + rect.width * -0.5) - stageRect.left;
+			centerY = (rect.top + rect.height * 0.5) - stageRect.top;
+			effectSize = '400px'; 
 		} else {
-			effectDiv.innerHTML = `<img src="${effectUrl}" style="width:100%; height:100%; object-fit:contain; animation: logFade 1.2s forwards;">`;
+			const eContainer = document.getElementById('test-enemies-container');
+			const rect = eContainer.getBoundingClientRect();
+			centerX = (rect.left + rect.width * 0.7) - stageRect.left;
+			centerY = (rect.top + rect.height * 1.0) - stageRect.top;
+			effectSize = '50vw'; 
+		}
+
+		effectDiv.style.left = `${centerX}px`; effectDiv.style.top = `${centerY}px`;
+		effectDiv.style.width = effectSize; effectDiv.style.height = effectSize;
+		effectDiv.style.transform = 'translate(-50%, -50%)'; 
+
+		const isVideo = finalUrl.toLowerCase().match(/\.(mp4|webm|mov)$/);
+		if (isVideo) {
+			effectDiv.innerHTML = `<video src="${finalUrl}" autoplay muted playsinline style="width:100%; height:100%; object-fit:contain;"></video>`;
+			const vid = effectDiv.querySelector('video');
+			vid.volume = engineSettings.sfxVolume; vid.onended = () => effectDiv.remove();
+		} else {
+			effectDiv.innerHTML = `<img src="${finalUrl}" style="width:100%; height:100%; object-fit:contain; animation: logFade 1.2s forwards;">`;
 			setTimeout(() => effectDiv.remove(), 1200); 
 		}
-		
-        // ✨ 关键点：直接挂在 stage 下，这样它就具有“穿透性”，不会被敌人的边框切掉
 		stage.appendChild(effectDiv);
 	}
 	
@@ -2576,15 +2710,18 @@ function renderList() {
 
 	// 增加了 index 参数
 
-	/* ----------------------------------
-	   3. 配置弹窗与数据绑定逻辑 (终极排版版)
-	   ---------------------------------- */
 	function openModal(title, type, itemName) {
 		currentEditingItem = itemName;
 		currentEditingType = type;
 		document.getElementById('modal-title').innerText = title;
 		document.getElementById('modal-save-btn').style.display = 'inline-block';
 		const content = document.getElementById('modal-content');
+		
+		// 🛠️ 核心进化：动态资源下拉框生成器
+		// 1. 获取视觉系资源 (图片/视频)
+		const getMediaOpts = (selectedVal) => `<option value="">-- 无 (None) --</option>` + Object.keys(editorData.resource).filter(k => ['image', 'video'].includes(editorData.resource[k].type)).map(c => `<option value="${c}" ${selectedVal === c ? 'selected' : ''}>${c}</option>`).join('');
+		// 2. 获取听觉系资源 (音效)
+		const getAudioOpts = (selectedVal) => `<option value="">-- 无音效 --</option>` + Object.keys(editorData.resource).filter(k => editorData.resource[k].type === 'audio').map(c => `<option value="${c}" ${selectedVal === c ? 'selected' : ''}>${c}</option>`).join('');
 		
 		let html = '';
 		if (type === 'character') {
@@ -2608,17 +2745,15 @@ function renderList() {
 								</div>
 							</div>
 							<div class="modal-form-group" style="margin-bottom: 10px;">
-								<label style="color:#dda0dd;">技能前置全屏 CG (直链):</label>
-								<input type="text" class="char-skill-cg" value="${sk.cg || ''}" placeholder="http://.../skill_cg.mp4">
+								<label style="color:#dda0dd;">技能前置全屏 CG (资源库):</label>
+								<select class="char-skill-cg">${getMediaOpts(sk.cg)}</select>
 							</div>
 							<div class="modal-form-group" style="margin-bottom: 0;">
-								<label style="color:#00bfff;">此角色施法动作动画 (覆盖默认攻击):</label>
-								<input type="text" class="char-skill-anim" value="${sk.anim || ''}" placeholder="http://.../skill_anim.mp4">
+								<label style="color:#00bfff;">此角色施法动作动画 (资源库):</label>
+								<select class="char-skill-anim">${getMediaOpts(sk.anim)}</select>
 							</div>
 						</div>`;
 			}).join('');
-
-			const sfxOptions = `<option value="">-- 无音效 --</option>` + Object.keys(editorData.resource).filter(k => editorData.resource[k].type === 'audio').map(c => `<option value="${c}" ${data.normalAttackSfx === c ? 'selected' : ''}>${c}</option>`).join('');
 
 			html = `
 				<div class="modal-form-group" style="display:flex; gap:10px;">
@@ -2629,25 +2764,25 @@ function renderList() {
 					<div style="flex:1"><label>基础攻击力 (ATK):</label><input id="edit-atk" type="number" value="${data.atk || 50}"></div>
 					<div style="flex:1"><label>每回合行动点 (AP):</label><input id="edit-ap" type="number" value="${data.ap || 3}"></div>
 				</div>
-				<div class="modal-sub-title">动作与待机状态 (图片/视频直链)</div>
-				<div class="modal-form-group"><label style="color:#ffcc00;">入场动画 (Intro):</label><input id="edit-intro" type="text" value="${data.introAnim || ''}"></div>
-				<div class="modal-form-group"><label>普通待机 (敌方回合/默认):</label><input id="edit-idle" type="text" value="${data.idleAnim || ''}"></div>
-				<div class="modal-form-group"><label style="color:#00bfff;">回合待机 (主菜单):</label><input id="edit-turn-idle" type="text" value="${data.turnIdleAnim || ''}"></div>
-				<div class="modal-form-group"><label style="color:#dda0dd;">施法待机 (技能二级菜单):</label><input id="edit-skill-idle" type="text" value="${data.skillSelectIdleAnim || ''}"></div>
-				<div class="modal-form-group"><label style="color:#00ff00;">道具待机 (打开背包时):</label><input id="edit-item-idle" type="text" value="${data.itemIdleAnim || ''}"></div>
-				<div class="modal-form-group"><label style="color:#ff0044;">准备待机 (锁定目标/准备处刑):</label><input id="edit-prepare-idle" type="text" value="${data.prepareIdleAnim || ''}"></div>
-				<div class="modal-form-group"><label>攻击动画:</label><input id="edit-attack" type="text" value="${data.attackAnim || ''}"></div>
-				<div class="modal-form-group"><label>受击动画:</label><input id="edit-hit" type="text" value="${data.hitAnim || ''}"></div>
-				<div class="modal-form-group"><label style="color:#00ff00;">闪避动画 (Dodge):</label><input id="edit-dodge" type="text" value="${data.dodgeAnim || ''}"></div>
-				<div class="modal-form-group"><label style="color:#ff4444;">普通攻击音效 (SFX):</label><select id="edit-char-sfx">${sfxOptions}</select></div>
+				<div class="modal-sub-title">动作与待机状态 (从资源库选取)</div>
+				<div class="modal-form-group"><label style="color:#ffcc00;">入场动画 (Intro):</label><select id="edit-intro">${getMediaOpts(data.introAnim)}</select></div>
+				<div class="modal-form-group"><label>普通待机 (敌方回合/默认):</label><select id="edit-idle">${getMediaOpts(data.idleAnim)}</select></div>
+				<div class="modal-form-group"><label style="color:#00bfff;">回合待机 (主菜单):</label><select id="edit-turn-idle">${getMediaOpts(data.turnIdleAnim)}</select></div>
+				<div class="modal-form-group"><label style="color:#dda0dd;">施法待机 (技能二级菜单):</label><select id="edit-skill-idle">${getMediaOpts(data.skillSelectIdleAnim)}</select></div>
+				<div class="modal-form-group"><label style="color:#00ff00;">道具待机 (打开背包时):</label><select id="edit-item-idle">${getMediaOpts(data.itemIdleAnim)}</select></div>
+				<div class="modal-form-group"><label style="color:#ff0044;">准备待机 (锁定目标/准备处刑):</label><select id="edit-prepare-idle">${getMediaOpts(data.prepareIdleAnim)}</select></div>
+				<div class="modal-form-group"><label>攻击动画:</label><select id="edit-attack">${getMediaOpts(data.attackAnim)}</select></div>
+				<div class="modal-form-group"><label>受击动画:</label><select id="edit-hit">${getMediaOpts(data.hitAnim)}</select></div>
+				<div class="modal-form-group"><label style="color:#00ff00;">闪避动画 (Dodge):</label><select id="edit-dodge">${getMediaOpts(data.dodgeAnim)}</select></div>
+				<div class="modal-form-group"><label style="color:#ff4444;">普通攻击音效 (SFX):</label><select id="edit-char-sfx">${getAudioOpts(data.normalAttackSfx)}</select></div>
 				<div class="modal-form-group"><label style="color:#00bfff;">普通攻击镜头动画:</label><select id="edit-char-normal-cam"><option value="">-- 默认攻击特写 --</option>${Object.keys(editorData.camera).map(c => `<option value="${c}" ${data.normalAttackCam === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
 				<div class="modal-sub-title">普通攻击进阶配置</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:1"><label>攻击方式:</label><select id="edit-atk-type"><option value="ranged" ${data.atkType==='ranged'?'selected':''}>远程 (原地施法)</option><option value="melee" ${data.atkType==='melee'?'selected':''}>近战 (冲刺突脸)</option></select></div>
 					<div style="flex:1"><label>近战退回时间 (秒):</label><input id="edit-atk-return" type="number" step="0.1" value="${data.atkReturnDelay || 0.6}"></div>
-				</div>
+                </div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
-					<div style="flex:2"><label>受击特效 (外链):</label><input id="edit-atk-hiteff" type="text" value="${data.atkHitEffect || ''}"></div>
+					<div style="flex:2"><label>受击特效 (资源库):</label><select id="edit-atk-hiteff">${getMediaOpts(data.atkHitEffect)}</select></div>
 					<div style="flex:1"><label>播放时机 (秒):</label><input id="edit-atk-hitdelay" type="number" step="0.1" value="${data.atkHitDelay || 0.3}"></div>
 				</div>
 				<div class="modal-form-group">
@@ -2685,7 +2820,7 @@ function renderList() {
 							<div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>发动权重:</label><input type="number" class="enemy-skill-weight" value="${sk.weight || 10}"></div>
 						</div>
 						<div style="display:flex; gap:10px; margin-bottom:10px;">
-							<div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>专属动作 (直链):</label><input type="text" class="enemy-skill-anim" value="${sk.anim || ''}"></div>
+							<div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>专属动作 (资源库):</label><select class="enemy-skill-anim">${getMediaOpts(sk.anim)}</select></div>
 							<div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>专属镜头:</label><select class="enemy-skill-cam">${camOptions}</select></div>
 						</div>
                         <div style="display:flex; gap:10px; border-top:1px dashed #555; padding-top:10px;">
@@ -2710,19 +2845,16 @@ function renderList() {
                 <div id="exec-settings" style="display: ${data.canExecute ? 'block' : 'none'}; border: 1px dashed #ff0044; padding: 10px; margin-bottom: 15px;">
                     <div style="display:flex; gap:10px;">
                         <div style="flex:1"><label>处刑触发血量 (低于此值):</label><input type="number" id="edit-enemy-exec-hp" value="${data.executeThreshold || 500}"></div>
-                        <div style="flex:1"><label>处刑被击动画 (直链):</label><input type="text" id="edit-enemy-exec-anim" value="${data.executeAnim || ''}"></div>
+                        <div style="flex:1"><label>处刑被击动画:</label><select id="edit-enemy-exec-anim">${getMediaOpts(data.executeAnim)}</select></div>
                     </div>
-                    <div style="margin-top:10px;"><label style="color:#dda0dd;">处刑全屏 CG (视频/图片):</label><input type="text" id="edit-enemy-exec-cg" value="${data.executeCG || ''}"></div>
+                    <div style="margin-top:10px;"><label style="color:#dda0dd;">处刑全屏 CG:</label><select id="edit-enemy-exec-cg">${getMediaOpts(data.executeCG)}</select></div>
 					<div style="margin-top:10px;">
-    <label style="color:#ff8c00;">喘气虚弱待机动画 (直链):</label>
-    <input type="text" id="edit-enemy-exec-idle" value="${data.executeIdleAnim || ''}" placeholder="血量低于阈值时，覆盖默认待机动画">
+    <label style="color:#ff8c00;">喘气虚弱待机动画:</label>
+    <select id="edit-enemy-exec-idle">${getMediaOpts(data.executeIdleAnim)}</select>
 </div>
 					<div style="margin-top:10px;">
     <label style="color:#ff4444;">💀 处刑触发音效 (SFX):</label>
-    <select id="edit-enemy-exec-sfx">
-        <option value="">-- 无音效 --</option>
-        ${Object.keys(editorData.resource).filter(k=>editorData.resource[k].type==='audio').map(c => `<option value="${c}" ${data.executeSfx === c ? 'selected' : ''}>${c}</option>`).join('')}
-    </select>
+    <select id="edit-enemy-exec-sfx">${getAudioOpts(data.executeSfx)}</select>
 </div>
                     <div style="display:flex; gap:10px; margin-top:10px;">
                         <div style="flex:1"><label>奖励 HP:</label><input type="number" id="edit-enemy-exec-rew-hp" value="${data.executeRewardHP || 0}"></div>
@@ -2732,18 +2864,15 @@ function renderList() {
                 </div>
 				<div class="modal-form-group"><label>AI 攻击倾向:</label><select id="edit-enemy-ai"><option>随机攻击</option></select></div>
 				
-				<div class="modal-sub-title">动画与音效配置 (图片/视频直链)</div>
-				<div class="modal-form-group"><label style="color:#ffcc00;">入场动画 (Intro):</label><input id="edit-enemy-intro" type="text" value="${data.introAnim || ''}"></div>
-				<div class="modal-form-group"><label>待机动画:</label><input id="edit-enemy-idle" type="text" value="${data.idleAnim || ''}"></div>
-				<div class="modal-form-group"><label>攻击动画:</label><input id="edit-enemy-attack" type="text" value="${data.attackAnim || ''}"></div>
-				<div class="modal-form-group"><label>受击动画:</label><input id="edit-enemy-hit" type="text" value="${data.hitAnim || ''}"></div>
-				<div class="modal-form-group"><label>死亡动画:</label><input id="edit-enemy-death" type="text" value="${data.deathAnim || ''}"></div>
+				<div class="modal-sub-title">动画与音效配置 (从资源库选取)</div>
+				<div class="modal-form-group"><label style="color:#ffcc00;">入场动画 (Intro):</label><select id="edit-enemy-intro">${getMediaOpts(data.introAnim)}</select></div>
+				<div class="modal-form-group"><label>待机动画:</label><select id="edit-enemy-idle">${getMediaOpts(data.idleAnim)}</select></div>
+				<div class="modal-form-group"><label>攻击动画:</label><select id="edit-enemy-attack">${getMediaOpts(data.attackAnim)}</select></div>
+				<div class="modal-form-group"><label>受击动画:</label><select id="edit-enemy-hit">${getMediaOpts(data.hitAnim)}</select></div>
+				<div class="modal-form-group"><label>死亡动画:</label><select id="edit-enemy-death">${getMediaOpts(data.deathAnim)}</select></div>
 				<div class="modal-form-group">
 					<label style="color:#ff4444;">普通攻击音效 (SFX):</label>
-					<select id="edit-enemy-sfx">
-						<option value="">-- 无音效 --</option>
-						${Object.keys(editorData.resource).filter(k=>editorData.resource[k].type==='audio').map(c => `<option value="${c}" ${data.normalAttackSfx === c ? 'selected' : ''}>${c}</option>`).join('')}
-					</select>
+					<select id="edit-enemy-sfx">${getAudioOpts(data.normalAttackSfx)}</select>
 				</div>
 				<div class="modal-form-group"><label style="color:#00bfff;">普通攻击镜头动画:</label><select id="edit-enemy-normal-cam"><option value="">-- 默认攻击特写 --</option>${Object.keys(editorData.camera).map(c => `<option value="${c}" ${data.normalAttackCam === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
 				
@@ -2753,7 +2882,7 @@ function renderList() {
 					<div style="flex:1"><label>近战退回时间 (秒):</label><input id="edit-enemy-atk-return" type="number" step="0.1" value="${data.atkReturnDelay || 0.6}"></div>
 				</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
-					<div style="flex:2"><label>受击特效 (外链):</label><input id="edit-enemy-atk-hiteff" type="text" value="${data.atkHitEffect || ''}"></div>
+					<div style="flex:2"><label>受击特效 (资源库):</label><select id="edit-enemy-atk-hiteff">${getMediaOpts(data.atkHitEffect)}</select></div>
 					<div style="flex:1"><label>播放时机 (秒):</label><input id="edit-enemy-atk-hitdelay" type="number" step="0.1" value="${data.atkHitDelay || 0.3}"></div>
 				</div>
 				<div class="modal-form-group">
@@ -2773,13 +2902,13 @@ function renderList() {
 			const data = editorData.skill[itemName];
 			const uType = data.userType || '玩家'; 
 			html = `
-				<div class="modal-form-group"><label style="color:#ff4444;">释放时触发音效 (SFX):</label><select id="edit-skill-sfx"><option value="">-- 无音效 --</option>${Object.keys(editorData.resource).filter(k=>editorData.resource[k].type==='audio').map(c => `<option value="${c}" ${data.sfx === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+				<div class="modal-form-group"><label style="color:#ff4444;">释放时触发音效 (SFX):</label><select id="edit-skill-sfx">${getAudioOpts(data.sfx)}</select></div>
 				<div class="modal-form-group" style="display:flex; gap:10px; background:#111; padding:10px; border:1px solid #444;">
 					<div style="flex:1"><label>技能方式:</label><select id="edit-skill-type"><option value="ranged" ${data.skillType==='ranged'?'selected':''}>远程</option><option value="melee" ${data.skillType==='melee'?'selected':''}>近战突脸</option></select></div>
 					<div style="flex:1"><label>近战退回时间 (秒):</label><input id="edit-skill-return" type="number" step="0.1" value="${data.returnDelay || 0.6}"></div>
 				</div>
 				<div class="modal-form-group" style="display:flex; gap:10px; background:#111; padding:10px; border:1px solid #444;">
-					<div style="flex:2"><label style="color:#00bfff;">受击专属特效 (外链):</label><input id="edit-skill-hiteff" type="text" value="${data.hitEffect || ''}"></div>
+					<div style="flex:2"><label style="color:#00bfff;">受击专属特效 (资源库):</label><select id="edit-skill-hiteff">${getMediaOpts(data.hitEffect)}</select></div>
 					<div style="flex:1"><label style="color:#00bfff;">播放时机 (秒):</label><input id="edit-skill-hitdelay" type="number" step="0.1" value="${data.hitDelay || 0.3}"></div>
 				</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
@@ -2874,7 +3003,26 @@ function renderList() {
 		} else if (type === 'ui_sfx') {
 			const data = editorData.uiSfx || {};
 			const getAudioOpts = (sel) => `<option value="">-- 无音效 --</option>` + Object.keys(editorData.resource).filter(k=>editorData.resource[k].type==='audio').map(c => `<option value="${c}" ${sel === c ? 'selected' : ''}>${c}</option>`).join('');
+			const getMediaOpts = (sel) => `<option value="">-- 无 (None) --</option>` + Object.keys(editorData.resource).filter(k=>['image', 'video'].includes(editorData.resource[k].type)).map(c => `<option value="${c}" ${sel === c ? 'selected' : ''}>${c}</option>`).join('');
+			
+			const mode = projectSettings.readMode || 'local_first';
 			html = `
+				<div class="modal-sub-title" style="color:#00bfff;">🌐 核心网络设置</div>
+				<div class="modal-form-group" style="display:flex; gap:10px;">
+					<div style="flex:2">
+						<label>数据读取模式 (消除本地404红字神器):</label>
+						<select id="sys-read-mode" style="border-color: #00bfff;">
+							<option value="cloud_first" ${mode === 'cloud_first' ? 'selected' : ''}>☁️ 优先云端 (推荐：无视本地，直接连备用直链/服务器)</option>
+							<option value="local_first" ${mode === 'local_first' ? 'selected' : ''}>💻 优先本地 (无网时测试：先找本地，没有再找云端)</option>
+							<option value="cloud_only" ${mode === 'cloud_only' ? 'selected' : ''}>☁️ 仅云端 (强制锁死：只读网络地址)</option>
+							<option value="local_only" ${mode === 'local_only' ? 'selected' : ''}>💻 仅本地 (强制锁死：断网模式，只读本地相对路径)</option>
+						</select>
+					</div>
+				</div>
+                <div class="modal-form-group">
+                    <label>资源服务器根目录前缀 (包含末尾的/):</label>
+                    <input id="sys-server-prefix" type="text" value="${projectSettings.serverPrefix || ''}" placeholder="https://www.google.com/">
+                </div>
 				<div class="modal-sub-title">系统交互音效配置</div>
 				<div class="modal-form-group"><label style="color:#00b400;">▶ 轮到玩家回合:</label><select id="sfx-turnStart">${getAudioOpts(data.turnStart)}</select></div>
 				<div class="modal-form-group"><label style="color:#0088ff;">▶ 菜单展开:</label><select id="sfx-menuOpen">${getAudioOpts(data.menuOpen)}</select></div>
@@ -2887,16 +3035,21 @@ function renderList() {
                 <div class="modal-form-group"><label style="color:#00ff00;">▶ 闪避成功:</label><select id="sfx-qteSuccess">${getAudioOpts(data.qteSuccess)}</select></div>
 				<div class="modal-form-group"><label style="color:#ff4444;">▶ 闪避失败:</label><select id="sfx-qteFail">${getAudioOpts(data.qteFail)}</select></div>
 
-				<div class="modal-sub-title">回合转场动画 (图片/视频直链)</div>
-				<div class="modal-form-group"><label style="color:#00ffff;">▶ 进入我方回合动画 (播放完才展开菜单):</label><input id="ui-anim-turnStart" type="text" value="${data.turnStartAnim || ''}" placeholder="http://..."></div>
-				<div class="modal-form-group"><label style="color:#ff4444;">▶ 离开我方回合动画 (播放完敌人才攻击):</label><input id="ui-anim-turnEnd" type="text" value="${data.turnEndAnim || ''}" placeholder="http://..."></div>
+				<div class="modal-sub-title">回合转场动画 (从资源库选取)</div>
+				<div class="modal-form-group"><label style="color:#00ffff;">▶ 进入我方回合动画 (播放完才展开菜单):</label><select id="ui-anim-turnStart">${getMediaOpts(data.turnStartAnim)}</select></div>
+				<div class="modal-form-group"><label style="color:#ff4444;">▶ 离开我方回合动画 (播放完敌人才攻击):</label><select id="ui-anim-turnEnd">${getMediaOpts(data.turnEndAnim)}</select></div>
 			`;
 		} else if (type === 'resource') {
-			const data = editorData.resource[itemName] || { url: '', type: 'image' };
+            // 三段式预加载改造！
+			const data = editorData.resource[itemName] || { url: '', localPath: '', useServer: false, fallbackUrl: '', type: 'image' };
 			html = `
 				<div class="modal-form-group"><label style="color:#00bfff;">资源名称 (重命名):</label><input id="edit-res-name" type="text" value="${itemName}" style="color: #00bfff; font-weight:bold;"></div>
-				<div class="modal-form-group"><label>外链地址 (URL):</label><input id="edit-res-url" type="text" value="${data.url}"></div>
-				<input id="edit-res-type" type="hidden" value="${data.type}">
+				<div class="modal-form-group"><label style="color:#00ff00;">1. 本地相对路径 (如 audio/hit.wav):</label><input id="edit-res-local" type="text" value="${data.localPath || ''}"></div>
+                <div class="modal-form-group" style="background:#1a1a1a; padding:10px; border-left:3px solid #00bfff;">
+                    <label><input type="checkbox" id="edit-res-server" ${data.useServer ? 'checked' : ''}> 2. 启用网络服务器 (本地找不到时，去服务器找)</label>
+                </div>
+                <div class="modal-form-group" style="margin-top:10px;"><label style="color:#ffcc00;">3. 备用绝对直链 (前两者失败时保底):</label><input id="edit-res-fallback" type="text" value="${data.fallbackUrl || data.url || ''}"></div>
+                <input id="edit-res-type" type="hidden" value="${data.type}">
 			`;
 		} else if (type === 'item') {
             const data = editorData.item[itemName];
@@ -2910,7 +3063,7 @@ function renderList() {
             html = `
                 <div class="modal-form-group"><label>消耗行动点 (AP):</label><input id="edit-item-ap" type="number" value="${data.apCost || 1}"></div>
                 <div class="modal-form-group"><label style="color:#00b400;">使用时镜头:</label><select id="edit-item-cam"><option value="">-- 默认 --</option>${Object.keys(editorData.camera).map(c => `<option value="${c}" ${data.camera === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
-                <div class="modal-form-group"><label style="color:#ff4444;">使用音效:</label><select id="edit-item-sfx"><option value="">-- 无 --</option>${Object.keys(editorData.resource).filter(k=>editorData.resource[k].type==='audio').map(c => `<option value="${c}" ${data.sfx === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+                <div class="modal-form-group"><label style="color:#ff4444;">使用音效:</label><select id="edit-item-sfx">${getAudioOpts(data.sfx)}</select></div>
                 <div class="modal-form-group"><label style="color:#00ffff;">宣告 UI 文本:</label><input id="edit-item-casttext" type="text" value="${data.castText || '[使用者] 使用了 [道具]！'}"></div>
                 <div class="modal-sub-title">触发效果叠加 (可多选) <span style="color:#00bfff; cursor:pointer; float:right;" onclick="addItemEffectRow()">+ 叠加效果</span></div>
                 <div id="item-effects-container" style="border:1px solid #444; padding:10px; background:#111;">${effHtml}</div>
@@ -2934,6 +3087,7 @@ function renderList() {
 		content.innerHTML = html;
 		document.getElementById('editor-modal').style.display = 'flex';
 	}
+	
 	function addSkillRow() {
 		const container = document.getElementById('character-skills-container');
 		const row = document.createElement('div');
@@ -2944,6 +3098,9 @@ function renderList() {
         // ✨ 新增镜头下拉框
         const camOptions = `<option value="">-- 默认攻击特写 --</option>` + 
             Object.keys(editorData.camera).map(c => `<option value="${c}">${c}</option>`).join('');
+
+        // 🛠️ 辅助函数
+        const getMediaOpts = () => `<option value="">-- 无 (None) --</option>` + Object.keys(editorData.resource).filter(k => ['image', 'video'].includes(editorData.resource[k].type)).map(c => `<option value="${c}">${c}</option>`).join('');
 
 		row.innerHTML = `
 			<span class="remove-btn" onclick="this.parentElement.remove()">X</span>
@@ -2958,12 +3115,12 @@ function renderList() {
                 </div>
             </div>
             <div class="modal-form-group" style="margin-bottom: 10px;">
-                <label style="color:#dda0dd;">技能前置全屏 CG (直链):</label>
-                <input type="text" class="char-skill-cg" placeholder="http://.../skill_cg.mp4">
+                <label style="color:#dda0dd;">技能前置全屏 CG (资源库):</label>
+                <select class="char-skill-cg">${getMediaOpts()}</select>
             </div>
             <div class="modal-form-group" style="margin-bottom: 0;">
-                <label style="color:#00bfff;">此角色施法动作动画 (覆盖默认攻击):</label>
-                <input type="text" class="char-skill-anim" placeholder="http://.../skill_anim.mp4">
+                <label style="color:#00bfff;">此角色施法动作动画 (资源库):</label>
+                <select class="char-skill-anim">${getMediaOpts()}</select>
             </div>
 		`;
 		container.appendChild(row);
@@ -2997,6 +3154,9 @@ function renderList() {
         const camOptions = `<option value="">-- 默认/技能自带 --</option>` + 
             Object.keys(editorData.camera).map(c => `<option value="${c}">${c}</option>`).join('');
 
+        // 🛠️ 辅助函数
+        const getMediaOpts = () => `<option value="">-- 无 (None) --</option>` + Object.keys(editorData.resource).filter(k => ['image', 'video'].includes(editorData.resource[k].type)).map(c => `<option value="${c}">${c}</option>`).join('');
+
         row.innerHTML = `
             <span class="remove-btn" onclick="this.parentElement.remove()">X</span>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -3011,8 +3171,8 @@ function renderList() {
             </div>
             <div style="display:flex; gap:10px;">
                 <div style="flex:1" class="modal-form-group" style="margin-bottom:0;">
-                    <label>专属动作动画 (直链):</label>
-                    <input type="text" class="enemy-skill-anim" placeholder="http://...">
+                    <label>专属动作动画 (资源库):</label>
+                    <select class="enemy-skill-anim">${getMediaOpts()}</select>
                 </div>
                 <div style="flex:1" class="modal-form-group" style="margin-bottom:0;">
                     <label>专属镜头:</label>
@@ -3104,25 +3264,45 @@ function renderList() {
 			editorData.uiSfx.endTurn = document.getElementById('sfx-endTurn').value;
 			editorData.uiSfx.turnStartAnim = document.getElementById('ui-anim-turnStart').value;
 			editorData.uiSfx.turnEndAnim = document.getElementById('ui-anim-turnEnd').value;
-			
-            // ✨✨✨ 致命修复：补上 QTE 闪避音效的保存逻辑 ✨✨✨
 			editorData.uiSfx.qteSuccess = document.getElementById('sfx-qteSuccess').value;
 			editorData.uiSfx.qteFail = document.getElementById('sfx-qteFail').value;
+			
+			// ✨ 集中处理并保存网络配置
+			projectSettings.serverPrefix = document.getElementById('sys-server-prefix').value.trim();
+			projectSettings.readMode = document.getElementById('sys-read-mode').value;
+			localStorage.setItem('rpg_project_settings', JSON.stringify(projectSettings));
             
-			closeModal(); saveToLocal(true); showToast("✨ 全局 UI 与动画设置已保存"); return;
+			closeModal(); saveToLocal(true); showToast("✨ 项目与 UI 设置已保存"); return;
 		}
 
 		if (currentEditingType === 'resource') {
 			const newName = document.getElementById('edit-res-name').value.trim();
-			const url = document.getElementById('edit-res-url').value.trim();
+			// ✨ 核心修复：获取全新的三段式数据！
+			const localPath = document.getElementById('edit-res-local').value.trim();
+			const useServer = document.getElementById('edit-res-server').checked;
+			const fallbackUrl = document.getElementById('edit-res-fallback').value.trim();
 			const type = document.getElementById('edit-res-type').value;
+
 			if (!newName) { showToast("⚠️ 名称不能为空", "#ff8800"); return; }
+			
+			// 组装全新的资源数据结构
+			const newResData = { 
+				localPath: localPath, 
+				useServer: useServer, 
+				fallbackUrl: fallbackUrl, 
+				type: type,
+				url: fallbackUrl // 保留一个旧字段防报错兜底
+			};
+
 			if (newName !== currentEditingItem) {
 				if (editorData.resource[newName]) { alert("⚠️ 该资源名称已存在！"); return; }
-				editorData.resource[newName] = { url: url, type: type };
+				editorData.resource[newName] = newResData;
 				delete editorData.resource[currentEditingItem];
 				showToast("✅ 重命名成功！", "#00b400");
-			} else { editorData.resource[currentEditingItem] = { url: url, type: type }; }
+			} else { 
+				editorData.resource[currentEditingItem] = newResData; 
+			}
+			
 			closeModal(); saveToLocal(true); renderList(); return;
 		}
 
@@ -4589,13 +4769,22 @@ function enterTestMode() {
 		}
 	});
 
-	// 3. 🚀 次世代黑屏引导序列 (外部呼出)
+	// ==========================================
+	// ✨ 次世代黑屏引导序列 (外部呼出用终极版)
+	// ==========================================
 	async function startBootSequence(levelName, rawPayload) {
-        // ✨ 立即撕掉纯黑的 iframe 遮罩，让带有背景图的 Boot Loader 露出来！
-        const waitBg = document.getElementById('iframe-wait');
-        if (waitBg) waitBg.remove(); 
-
+		const waitBg = document.getElementById('iframe-wait');
+		if (waitBg) waitBg.remove(); 
+		
 		const loader = document.getElementById('boot-loader');
+		const devConsole = document.getElementById('dev-console');
+		const editorUI = document.getElementById('editor-mode');
+		
+		// ✨✨✨ 外部呼出同理，必须强制提权！
+		if (loader) document.body.appendChild(loader);
+		if (devConsole) document.body.appendChild(devConsole);
+		if (editorUI) editorUI.style.display = 'none'; 
+
 		const info = document.getElementById('boot-info');
 		const bar = document.getElementById('boot-progress-bar');
 		const status = document.getElementById('boot-status');
@@ -4603,57 +4792,79 @@ function enterTestMode() {
 		const errBox = document.getElementById('boot-errors');
 		const forceBtn = document.getElementById('boot-force-btn');
 
+		loader.style.zIndex = '999999';
 		loader.style.display = 'flex';
+
 		info.style.color = '#aaa'; info.innerText = `被主程序调取，调取信息：${rawPayload}`;
 		errBox.innerHTML = ''; errBox.style.display = 'none'; forceBtn.style.display = 'none';
 		
+		void loader.offsetWidth; 
+		await new Promise(resolve => setTimeout(resolve, 50)); // 踩一脚刹车
+
 		let hasError = false;
-		const updateProgress = (p, text) => { bar.style.width = p + '%'; percent.innerText = p + '%'; status.innerText = `正在加载：${text}`; };
+		const updateProgress = (p, text) => { bar.style.width = p + '%'; percent.innerText = p + '%'; status.innerText = `正在处理：${text}`; };
 		const addBootError = (msg) => { hasError = true; errBox.style.display = 'block'; errBox.innerHTML += `<div>✖ ${msg}</div>`; forceBtn.style.display = 'block'; bar.style.background = '#ff4444'; };
 
 		updateProgress(10, '读取本地设置与密钥...');
-		loadEngineSettings(); loadCloudConfig();
-		await new Promise(r => setTimeout(r, 300)); 
+		loadEngineSettings(); 
+		await new Promise(r => setTimeout(r, 100)); 
 
-		updateProgress(40, '下载云端配置 (强拉纯净数据)...');
-		if (cloudConfig.gistId) {
-            try { await loadFromCloud(true); } 
-            catch (e) { addBootError(`云端拉取失败: ${e.message}`); loadFromLocal(); }
+		updateProgress(20, '下载云端配置 (强拉纯净数据)...');
+		if (typeof cloudConfig !== 'undefined' && cloudConfig.gistId) {
+			try { await loadFromCloud(true); } 
+			catch (e) { addBootError(`云端拉取失败: ${e.message}`); loadFromLocal(); }
 		} else {
-			addBootError('云端配置有问题：未找到有效的 Gist ID。'); loadFromLocal(); 
+			loadFromLocal(); 
 		}
 
-        // ✨ ✨ ✨ 核心：当数据拉取完毕后，立刻点亮动态背景图！
-        if (editorData.level && editorData.level[levelName]) {
-            const bgName = editorData.level[levelName].loadingBg;
-            if (bgName && editorData.resource[bgName]) {
-                loader.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.8)), url(${editorData.resource[bgName].url})`;
-                loader.style.backgroundSize = 'cover'; loader.style.backgroundPosition = 'center';
-            }
-        }
+		if (editorData.level && editorData.level[levelName]) {
+			const bgName = editorData.level[levelName].loadingBg;
+			if (bgName && editorData.resource[bgName]) {
+				loader.style.background = 'none';
+				loader.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.8)), url(${getAssetUrl(bgName)})`;
+				loader.style.backgroundSize = 'cover'; loader.style.backgroundPosition = 'center';
+			}
+		}
 
-		updateProgress(70, '校验关卡所需资源...');
-		await new Promise(r => setTimeout(r, 400)); 
+		if (!editorData.level || !editorData.level[levelName]) {
+			addBootError(`找不到关卡：数据库中不存在名为 [${levelName}] 的关卡！`);
+		}
 
-		if (!editorData.level || !editorData.level[levelName]) addBootError(`找不到关卡：数据库中不存在名为 [${levelName}] 的关卡！`);
-		else if (!editorData.level[levelName].enemies || editorData.level[levelName].enemies.length === 0) addBootError(`关卡数据异常：关卡 [${levelName}] 中没有配置任何敌人！`);
-
-		updateProgress(90, '准备进入测试模式...');
-		forceBtn.onclick = () => finishBoot(levelName, loader);
+		// 2. 🚀 进入真实的预加载流程
+		let isSkipped = false;
 		if (!hasError) {
+			forceBtn.style.display = 'block';
+			forceBtn.onclick = () => { isSkipped = true; forceBtn.innerText = '正在跳过...'; };
+			await executePreload(levelName, updateProgress, () => isSkipped);
+		}
+
+		// 3. 收尾并切入战斗
+		forceBtn.onclick = () => finishBoot(levelName, loader);
+		if (!hasError || isSkipped) {
 			updateProgress(100, '加载完成！');
 			setTimeout(() => finishBoot(levelName, loader), 500);
 		}
 	}
 
 	// ==========================================
-	// ✨ 内部测试模式专属引导序列 (包含加载底图)
+	// ✨ 内部测试模式专属引导序列 (终极破局版)
 	// ==========================================
 	async function startInternalBoot() {
 		if (!activePlayer) { showToast("⚠️ 请先在编辑器选定出战玩家！", "#ff8800"); return; }
 		if (activeEnemies.length === 0) { showToast("⚠️ 请至少添加一个敌人到工作区！", "#ff8800"); return; }
 
+		syncWorkspaceToLevel(); 
+
 		const loader = document.getElementById('boot-loader');
+		const devConsole = document.getElementById('dev-console');
+		const editorUI = document.getElementById('editor-mode');
+		
+		// ✨✨✨ 终极物理提权：把加载器和控制台从隐形的 test-mode 里强制拔出，放到网页最顶层！
+		if (loader) document.body.appendChild(loader);
+		if (devConsole) document.body.appendChild(devConsole);
+
+		if (editorUI) editorUI.style.display = 'none';
+
 		const info = document.getElementById('boot-info');
 		const bar = document.getElementById('boot-progress-bar');
 		const status = document.getElementById('boot-status');
@@ -4661,38 +4872,49 @@ function enterTestMode() {
 		const errBox = document.getElementById('boot-errors');
 		const forceBtn = document.getElementById('boot-force-btn');
 
+		loader.style.zIndex = '999999';
 		loader.style.display = 'flex';
-		info.style.color = '#00b400'; info.innerText = `[本地调试模式] 正在构建虚拟战斗环境...`;
+
+		info.style.color = '#00b400'; info.innerText = `[本地调试模式] 正在拉取战斗资源... (按Tab可看日志)`;
 		errBox.style.display = 'none'; forceBtn.style.display = 'none'; bar.style.background = '#00b400'; 
 		
-        // ✨ 本地测试直接点亮加载背景！
-        if (activeLoadingBg && editorData.resource[activeLoadingBg]) {
-            loader.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.8)), url(${editorData.resource[activeLoadingBg].url})`;
-            loader.style.backgroundSize = 'cover'; loader.style.backgroundPosition = 'center';
-        } else {
-            loader.style.background = '#050505'; // 兜底黑幕
-        }
+		// ✨ 优化背景图的渲染，防止属性打架
+		if (activeLoadingBg && editorData.resource[activeLoadingBg]) {
+			loader.style.background = 'none'; // 清除纯色底
+			loader.style.backgroundImage = `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.8)), url(${getAssetUrl(activeLoadingBg)})`;
+			loader.style.backgroundSize = 'cover'; loader.style.backgroundPosition = 'center';
+		} else {
+			loader.style.backgroundImage = 'none';
+			loader.style.background = '#050505'; 
+		}
 
-		const updateProgress = (p, text) => { bar.style.width = p + '%'; percent.innerText = p + '%'; status.innerText = `正在加载：${text}`; };
+		void loader.offsetWidth; // 强逼浏览器重绘
+		await new Promise(resolve => setTimeout(resolve, 50)); // 踩一脚刹车
 
-		updateProgress(20, '编译战斗实体数据...'); await new Promise(r => setTimeout(r, 200));
-		updateProgress(50, '校验本地媒体与特效资源...'); await new Promise(r => setTimeout(r, 250));
-		updateProgress(80, '构建动态镜头轨道...'); await new Promise(r => setTimeout(r, 200));
-		updateProgress(100, '本地数据装载完成！');
+		const updateProgress = (p, text) => { bar.style.width = p + '%'; percent.innerText = p + '%'; status.innerText = `加载中：${text}`; };
 		
+		let isSkipped = false;
+		const skipTimer = setTimeout(() => {
+			forceBtn.style.display = 'block';
+			forceBtn.onclick = () => { isSkipped = true; forceBtn.innerText = '正在跳过...'; };
+		}, 2000);
+
+		// 正式开始高强度预加载
+		await executePreload(currentLevelName, updateProgress, () => isSkipped);
+		clearTimeout(skipTimer);
+
+		// 收尾并切入战斗
 		setTimeout(async () => {
 			loader.style.display = 'none';
-            
-            // 🎬 ✨ 进入关卡：如果配置了前置剧情 CG，先阻塞播放！
-            if (activeStartCG && editorData.resource[activeStartCG]) {
-                devLog(`[剧情演出] 播放关卡开场 CG...`, 'anim');
-                await playFullscreenCG(editorData.resource[activeStartCG].url);
-            }
+			if (activeStartCG && editorData.resource[activeStartCG]) {
+				devLog(`[剧情演出] 播放关卡开场 CG...`, 'anim');
+				await playFullscreenCG(activeStartCG);
+			}
 
 			const exitBtn = document.querySelector('.exit-test-btn');
 			if (exitBtn) exitBtn.style.display = 'block'; 
 			const setBtn = document.querySelector('.test-settings-btn');
-			if (setBtn) setBtn.style.display = 'block'; // 本地测试强制保留
+			if (setBtn) setBtn.style.display = 'block'; 
 			enterTestMode(); 
 		}, 300);
 	}
@@ -4729,10 +4951,13 @@ function enterTestMode() {
 	// 独立运行时的初始化 (如果不被嵌套，直接进编辑器)
 	// ==========================================
 	window.onload = () => {
-		if (window.parent && window.parent !== window) {
-			document.body.insertAdjacentHTML('beforeend', '<div id="iframe-wait" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#050505;z-index:9998;"></div>');
-			return; 
-		}
+    if (window.parent && window.parent !== window) {
+        // 在被主程序调用时，只显示黑屏或底图，坚决不露编辑器！
+        document.body.insertAdjacentHTML('beforeend', '<div id="iframe-wait" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#050505;z-index:9998;"></div>');
+        return; 
+    }
+    // ✨ 独立打开时，才解除隐藏
+    document.getElementById('editor-mode').style.display = 'flex';
 
 		loadEngineSettings();
 		loadCloudConfig();
