@@ -6,205 +6,108 @@
 <title>RPG 游戏引擎编辑器</title>
 <style>
 	/* =========================================================
-	   全局 & 编辑器模式样式
+	   全局 & 编辑器模式样式 (Next-Gen Dark Theme)
 	   ========================================================= */
 	body {
-		margin: 0;
-		padding: 0;
-		background-color: #222;
-		font-family: "Microsoft YaHei", sans-serif;
-		overflow: hidden;
-		user-select: none;
+		margin: 0; padding: 0; background-color: #0d1117; font-family: "Microsoft YaHei", sans-serif; overflow: hidden; user-select: none;
 	}
 
-	#editor-mode, #test-mode {
-		width: 100vw;
-		height: 100vh;
-		position: absolute;
-		top: 0;
-		left: 0;
-	}
-
-	#test-mode {
-		display: none; 
-		background: radial-gradient(circle, #eaeaea 0%, #c4c4c4 100%);
-	}
-
-	#editor-mode {
-    display: none; /* ✨ 初始必定隐藏，防闪烁 */
-    background-color: #000;
-}
+	#editor-mode, #test-mode { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+	#test-mode { 
+        display: none; 
+        background: radial-gradient(circle, #eaeaea 0%, #c4c4c4 100%); 
+    }
+	#editor-mode { display: none; background-color: #0d1117; }
 
 	.sidebar {
-		width: 300px;
-		background-color: #000;
-		border-right: 2px dashed red;
-		display: flex;
-		flex-direction: column;
+		width: 300px; background-color: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.3);
 	}
 	
 	.selection-list { display: flex; flex-direction: column; gap: 10px; }
 	.selection-btn {
-		background-color: #333; color: white; border: 1px solid #555;
+		background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px;
 		padding: 10px; cursor: pointer; text-align: center; transition: 0.2s;
 	}
-	.selection-btn:hover { background-color: #555; border-color: red; }
+	.selection-btn:hover { background-color: #30363d; border-color: #58a6ff; }
 
-	.tabs {
-		display: flex;
-		flex-wrap: wrap;
-		border-bottom: 2px solid red;
-	}
-
+	.tabs { display: flex; flex-wrap: wrap; border-bottom: 1px solid #30363d; background: #0d1117; }
 	.tab {
-		flex: 1;
-		text-align: center;
-		color: white;
-		padding: 10px 0;
-		border: 2px dashed red;
-		border-bottom: none;
-		cursor: pointer;
-		font-size: 14px;
-		font-weight: bold;
+		flex: 1; text-align: center; color: #8b949e; padding: 12px 0; border-bottom: 2px solid transparent; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s;
 	}
-	.tab.active { background-color: #333; }
+	.tab:hover { color: #c9d1d9; background: #161b22; }
+	.tab.active { color: #58a6ff; border-bottom: 2px solid #58a6ff; background: #161b22; }
 
-	.item-list {
-		flex-grow: 1;
-		overflow-y: auto;
-	}
+	.item-list { flex-grow: 1; overflow-y: auto; background: #161b22; }
+    .item-list::-webkit-scrollbar { width: 6px; }
+    .item-list::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
 
 	.list-item {
-		color: white;
-		padding: 15px 20px;
-		border-bottom: 2px solid red;
-		cursor: pointer;
-		display: flex;
-		justify-content: space-between;
+		color: #c9d1d9; padding: 12px 20px; border-bottom: 1px solid #21262d; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; font-size: 14px;
 	}
-	.list-item:hover { background-color: #222; }
+	.list-item:hover { background-color: #1f242c; padding-left: 25px; border-left: 3px solid #58a6ff; }
+	.list-item .del-btn { opacity: 0; transition: 0.2s; }
+	.list-item:hover .del-btn { opacity: 1; }
 
-	.add-btn {
-		background-color: #333;
-		color: white;
-		text-align: center;
-		padding: 10px;
-		border-top: 2px dashed red;
-		cursor: pointer;
-		font-weight: bold;
-	}
+	.add-btn { background-color: #238636; color: white; text-align: center; padding: 12px; border-top: 1px solid #30363d; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; }
+	.add-btn:hover { background-color: #2ea043; }
 
 	.workspace {
-		flex-grow: 1;
-		background-color: #888; 
-		position: relative;
+		flex-grow: 1; position: relative;
+        /* 高级网格背景底图 */
+        background-color: #0d1117;
+        background-image: linear-gradient(#21262d 1px, transparent 1px), linear-gradient(90deg, #21262d 1px, transparent 1px);
+        background-size: 30px 30px;
 	}
 
 	.placeholder-box {
-		position: absolute;
-		border: 4px dashed red;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		color: white;
-		font-size: 18px;
-		cursor: pointer;
-		text-align: center;
-		padding: 20px;
-		background-color: rgba(0,0,0,0.2);
+		position: absolute; border: 2px dashed #58a6ff; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: #58a6ff; font-size: 16px; cursor: pointer; text-align: center; padding: 20px; background-color: rgba(88,166,255,0.05); transition: 0.2s; backdrop-filter: blur(2px);
 	}
-	.placeholder-box:hover { background-color: rgba(255,0,0,0.2); }
-
+	.placeholder-box:hover { background-color: rgba(88,166,255,0.15); box-shadow: 0 0 15px rgba(88,166,255,0.3); }
 
 	.run-test-btn {
-		position: absolute;
-		top: 10px;
-		right: 10px;
-		color: white;
-		border: 3px dashed red;
-		padding: 10px 20px;
-		background-color: #000;
-		cursor: pointer;
-		font-weight: bold;
-		font-size: 16px;
-		z-index: 10;
+		position: absolute; top: 15px; right: 20px; color: white; border: none; border-radius: 6px; padding: 10px 25px; background: linear-gradient(135deg, #d32f2f, #f44336); cursor: pointer; font-weight: bold; font-size: 16px; z-index: 10; box-shadow: 0 4px 15px rgba(244,67,54,0.4); transition: 0.2s;
 	}
-	.run-test-btn:hover { background-color: red; }
+	.run-test-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(244,67,54,0.6); filter: brightness(1.1); }
 	
-	/* ✨ 修复：将编辑器里的玩家选择框固定在左下角 */
-	#player-box {
-		left: 5%;
-		bottom: 10%;
-		width: 220px;
-		height: 350px;
-	}
+	#player-box { left: 5%; bottom: 10%; width: 220px; height: 350px; }
 
-	/* 模态弹窗 */
-	.modal-overlay {
-		position: absolute;
-		top: 0; left: 0; width: 100%; height: 100%;
-		background: rgba(0,0,0,0.6);
-		display: none;
-		justify-content: center;
-		align-items: center;
-		z-index: 100;
-	}
-	.modal {
-		background-color: #222;
-		border: 2px solid red;
-		padding: 20px;
-		color: white;
-		width: 450px; 
-		max-height: 80vh; 
-		display: flex;
-		flex-direction: column;
-	}
-	#modal-content {
-		overflow-y: auto; 
-		padding-right: 10px;
-		margin-bottom: 10px;
-	}
+	/* 高级模态弹窗 */
+	.modal-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: none; justify-content: center; align-items: center; z-index: 100; }
+	.modal { background-color: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 25px; color: #c9d1d9; width: 480px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+	#modal-content { overflow-y: auto; padding-right: 15px; margin-bottom: 10px; }
+    #modal-content::-webkit-scrollbar { width: 6px; }
+    #modal-content::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
 	
-	.modal-sub-title {
-		margin: 15px 0 10px;
-		border-bottom: 1px dashed #555;
-		padding-bottom: 5px;
-		color: #ddd;
-		font-size: 16px;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
+	.modal-sub-title { margin: 15px 0 10px; border-bottom: 1px solid #30363d; padding-bottom: 8px; color: #58a6ff; font-size: 15px; display: flex; justify-content: space-between; align-items: center; font-weight: bold;}
 	
-	.skill-row {
-		background: #1a1a1a;
-		padding: 10px;
-		margin-bottom: 10px;
-		border: 1px solid #444;
-		position: relative;
-	}
-	.skill-row .remove-btn {
-		position: absolute; right: 10px; top: 10px; color: red; cursor: pointer; font-weight: bold;
-	}
-	.modal h3 { margin-top: 0; border-bottom: 1px dashed red; padding-bottom: 10px; }
+	.skill-row { background: #0d1117; padding: 15px; margin-bottom: 10px; border: 1px solid #30363d; border-radius: 8px; position: relative; }
+	.skill-row .remove-btn { position: absolute; right: 10px; top: 10px; color: #f85149; cursor: pointer; font-weight: bold; background: rgba(248,81,73,0.1); width: 24px; height: 24px; border-radius: 50%; display: flex; justify-content: center; align-items: center;}
+	.modal h3 { margin-top: 0; border-bottom: 1px solid #30363d; padding-bottom: 15px; font-size: 20px; color: #fff; }
 	.modal-form-group { margin-bottom: 15px; }
-	.modal-form-group label { display: block; margin-bottom: 5px; color: #aaa; }
-	.modal-form-group input, 
-	.modal-form-group select,
-	.modal-form-group textarea { 
-		width: 100%; 
-		padding: 5px; 
-		box-sizing: border-box; 
-		background: #111; 
-		color: white; 
-		border: 1px solid #555; 
-		font-family: inherit;
-		resize: vertical; 
-	} /* 修复了你原来代码这里多出来的一个 } */
+	.modal-form-group label { display: block; margin-bottom: 6px; color: #8b949e; font-size: 13px; }
+	.modal-form-group input, .modal-form-group select, .modal-form-group textarea { width: 100%; padding: 8px 10px; border-radius: 6px; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; font-family: inherit; transition: 0.2s; box-sizing: border-box; resize: vertical; }
+    .modal-form-group input:focus, .modal-form-group select:focus, .modal-form-group textarea:focus { outline: none; border-color: #58a6ff; box-shadow: 0 0 0 3px rgba(88,166,255,0.2); }
 	
-	.modal-close-btn {
-		background: red; color: white; border: none; padding: 8px 15px; cursor: pointer; float: right;
-	}
+	.modal-close-btn { background: #238636; color: white; border: none; border-radius: 6px; padding: 8px 18px; cursor: pointer; float: right; font-weight: bold; transition: 0.2s;}
+    .modal-close-btn:hover { background: #2ea043; }
+
+	.top-nav { display: flex; justify-content: space-between; align-items: center; background-color: #161b22; border-bottom: 1px solid #30363d; padding: 10px 20px; color: #fff; font-weight: bold; height: 45px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+	.nav-actions { display: flex; gap: 10px; }
+	.nav-btn { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 6px 15px; cursor: pointer; font-family: inherit; font-size: 13px; transition: 0.2s; font-weight: bold;}
+	.nav-btn:hover { background-color: #30363d; border-color: #8b949e; }
+	.save-btn { background-color: #238636; border-color: #2ea043; color: #fff;}
+	.save-btn:hover { background-color: #2ea043; border-color: #3fb950; }
+
+	.toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: rgba(35, 134, 54, 0.95); color: white; padding: 12px 25px; border-radius: 8px; font-weight: bold; z-index: 1000; opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+	.toast.show { opacity: 1; top: 80px; }
+	
+	#enemies-area { position: absolute; right: 5%; top: 15%; bottom: 10%; display: flex; gap: 15px; flex-wrap: wrap; width: 450px; justify-content: flex-start; align-content: flex-start; overflow-y: auto; padding-right: 10px; }
+    #enemies-area::-webkit-scrollbar { width: 6px; }
+    #enemies-area::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+	
+    .enemy-box { width: 120px; height: 160px; border: 2px solid #30363d; border-radius: 8px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #8b949e; font-size: 14px; cursor: pointer; text-align: center; background-color: #161b22; position: relative; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    .enemy-box:hover { border-color: #f85149; background-color: rgba(248,81,73,0.1); transform: translateY(-3px); }
+    .enemy-box .del-btn { position: absolute; top: -10px; right: -10px; background: #f85149; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-weight: bold; font-size: 14px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
 
 	/* =========================================================
        测试模式样式 (终极动画修复版)
@@ -345,7 +248,7 @@
 
     /* 5. 战报信息栏：左下角，现代透明风 */
     #combat-log {
-        position: absolute; left: 2%; bottom: 2%; width: 35%; height: 25vh;
+        position: absolute; left: 2%; bottom: 2%; width: 25%; height: 30vh; 
         background: rgba(0,0,0,0.5); padding: 15px; padding-top: 40px; box-sizing: border-box;
         border-left: 5px solid #aaa; overflow: hidden; display: flex; flex-direction: column-reverse;
         mask-image: linear-gradient(to top, black 80%, transparent 100%); -webkit-mask-image: linear-gradient(to top, black 80%, transparent 100%);
@@ -379,6 +282,8 @@
     .exit-test-btn:hover { background-color: #fff; color: #000; }
 	.test-settings-btn { position: absolute; top: 20px; right: 20px; background-color: rgba(0,0,0,0.7); color: white; border: 1px solid #fff; padding: 8px 15px; cursor: pointer; z-index: 100; font-family: inherit; transition: 0.2s; }
     .test-settings-btn:hover { background-color: #fff; color: #000; }
+	.test-help-btn { position: absolute; top: 20px; right: 135px; background-color: rgba(0,0,0,0.7); color: white; border: 1px solid #00bfff; padding: 8px 15px; cursor: pointer; z-index: 100; font-family: inherit; transition: 0.2s; }
+    .test-help-btn:hover { background-color: #00bfff; color: #fff; }
 	
 	/* =========================================================
 	   新增：顶部导航栏与提示框样式
@@ -728,7 +633,7 @@
     #dev-monitor-sidebar {
         position: absolute; right: -350px; top: 0; width: 320px; height: 100%;
         background: rgba(0, 20, 0, 0.85); border-left: 2px solid #00ff00;
-        z-index: 10000; transition: right 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        z-index: 9998; transition: right 0.3s cubic-bezier(0.22, 1, 0.36, 1);
         display: flex; flex-direction: column; font-family: "Consolas", monospace;
         backdrop-filter: blur(5px); pointer-events: none; /* 穿透点击，不影响操作 */
     }
@@ -779,6 +684,102 @@
     );
 }
 
+/* =========================================================
+	   ✨ 终极超现代玻璃拟态角色面板 (Next-Gen UI Style)
+	   ========================================================= */
+	.char-info-btn {
+		position: absolute; left: 2%; bottom: 32vh; /* 悬浮在战报面板的上方 */
+		background: rgba(0, 191, 255, 0.1); border: 1px solid rgba(0, 191, 255, 0.3); color: rgba(0, 191, 255, 0.9);
+		padding: 8px 20px; cursor: pointer; z-index: 100; font-weight: bold; border-radius: 20px; /* 变得圆润 */
+		backdrop-filter: blur(5px); transition: 0.3s; pointer-events: auto; letter-spacing: 1px; font-size: 13px;
+	}
+	.char-info-btn:hover { background: rgba(0, 191, 255, 0.3); color: #fff; box-shadow: 0 0 20px rgba(0, 191, 255, 0.5); }
+
+	/* 🌟 面板容器：气凝胶玻璃化 (Glassmorphism) */
+	#char-info-panel {
+		position: absolute; left: 0; top: 0; width: 100vw; height: 100vh;
+		background: rgba(255, 255, 255, 0.03); /* 极度透明 */
+		backdrop-filter: blur(35px) saturate(180%); /* 高强度模糊与饱和度提升，形成果冻感 */
+		-webkit-backdrop-filter: blur(35px) saturate(180%);
+		border-right: 1px solid rgba(255, 255, 255, 0.08); z-index: 2000;
+		transform: translateX(-100%); opacity: 0; transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1); /* 丝滑弹出 */
+		display: flex; box-sizing: border-box; color: #fff; pointer-events: none;
+		overflow: hidden; /* 防止立绘溢出屏幕 */
+	}
+	/* 加上一層微弱的光澤紋理，模擬高級玻璃 */
+	#char-info-panel::after {
+		content:''; position:absolute; left:0; top:0; width:100%; height:100%; 
+		background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyIiBoZWlnaHQ9IjIiPjxyZWN0IHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wMSkiLz48L3N2Zz4=');
+		pointer-events: none; z-index: 1;
+	}
+
+	#char-info-panel.active { transform: translateX(0); opacity: 1; pointer-events: auto; }
+
+	/* 🌟 立绘区域：巨型化，突破天际！ */
+	.cip-left { 
+		flex: 0 0 55%; /* 占用更大空间 */
+		display: flex; align-items: flex-end; justify-content: flex-end; position: relative; 
+		height: 100%; overflow: visible; /* 允许立绘溢出容器界限 */
+	}
+	.cip-left img { 
+		height: 120%; /* 💡 突破：高度设为屏幕的120%，冲出屏幕上下边缘！ */
+		width: auto; object-fit: contain; object-position: bottom right; 
+		filter: drop-shadow(10px 10px 40px rgba(0,0,0,0.6)); z-index: 2; 
+		position: absolute; bottom: -5vh; right: -5vw; /* 让立绘不仅巨型，还往右下方偏移，制造张力 */
+		transform-origin: bottom right; transition: transform 0.6s ease-out;
+	}
+	#char-info-panel.active .cip-left img { transform: scale(1); } /* 进场时的微小缩放效果 */
+
+	/* 唯美的背景光圈修饰 */
+	.cip-left::before { 
+		content:''; position:absolute; width: 60vh; height: 60vh; 
+		background: radial-gradient(circle, rgba(0,191,255,0.15) 0%, rgba(0,191,255,0) 70%); 
+		z-index: 1; bottom: 10vh; right: 5vw; border-radius: 50%; blur: 20px;
+	}
+
+	/* 🌟 右侧信息区域：更通透 */
+	.cip-right { 
+		flex: 1; padding: 60px 80px 60px 20px; display: flex; flex-direction: column; 
+		overflow-y: auto; z-index: 3; position: relative; 
+		background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 10%, rgba(0,0,0,0.4) 90%, rgba(0,0,0,0) 100%);
+	}
+	
+	.cip-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 20px; margin-bottom: 30px; }
+	.cip-name { font-size: 72px; font-weight: 900; color: #fff; text-shadow: 0 0 20px rgba(0,191,255,0.8); letter-spacing: 8px; margin: 0; line-height: 1; font-family: "Impact", sans-serif; text-transform: uppercase; }
+	.cip-desc { font-size: 14px; color: rgba(255,255,255,0.7); font-style: italic; max-width: 55%; text-align: right; line-height: 1.6; }
+
+	.cip-bars { margin-bottom: 30px; }
+	.cip-bar-wrap { width: 100%; height: 30px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 15px; position: relative; margin-bottom: 15px; overflow: hidden;}
+	.cip-bar-fill { height: 100%; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 15px; }
+	.cip-bar-text { position: absolute; left: 0; top: 0; width: 100%; height: 100%; text-align: center; font-size: 12px; font-weight: bold; line-height: 30px; color: #fff; letter-spacing: 2px; text-transform: uppercase; }
+
+	.cip-stats { display: flex; gap: 60px; margin-bottom: 30px; font-size: 18px; color: rgba(255,255,255,0.9); letter-spacing: 1px; }
+	.cip-stat-item span { color: rgba(0,191,255,0.8); margin-right: 12px; font-size: 14px; text-transform: uppercase; }
+
+	.cip-section-title { font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 20px; padding-left: 15px; border-left: 2px solid rgba(0,191,255,0.5); font-weight: bold; text-transform: uppercase; letter-spacing: 3px;}
+
+	.cip-skills-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+	.cip-skill-card { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03); padding: 20px; border-radius: 8px; transition: 0.2s; backdrop-filter: blur(5px);}
+	.cip-skill-card:hover { border-color: rgba(255,215,0,0.3); background: rgba(255,215,0,0.03); transform: translateY(-3px); box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
+	.cip-skill-name { color: #ffd700; font-weight: bold; font-size: 18px; margin-bottom: 10px; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
+	.cip-skill-desc { color: rgba(255,255,255,0.7); font-size: 12px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+	.cip-buffs-list { display: flex; flex-direction: column; gap: 12px; }
+	.cip-buff-row { font-size: 14px; background: rgba(0,0,0,0.15); padding: 12px 18px; border-left: 2px solid #ffd700; display: flex; flex-wrap: wrap; align-items: center; border-radius: 4px;backdrop-filter: blur(5px);}
+	.cip-buff-name { color: #ffd700; font-weight: bold; margin-right: 12px; font-size: 15px;}
+	.cip-buff-dur { color: rgba(255,255,255,0.5); font-size: 12px; margin-right: 15px; background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; }
+	.cip-buff-desc { color: rgba(255,255,255,0.8); font-size: 13px; flex: 1; min-width: 200px; }
+
+	/* 🌟 右上角唯美关闭按钮 */
+	.cip-close-btn {
+		position: absolute; top: 30px; right: 40px; z-index: 100;
+		background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+		color: rgba(255,255,255,0.6); width: 45px; height: 45px; border-radius: 50%;
+		display: flex; justify-content: center; align-items: center;
+		font-size: 20px; cursor: pointer; transition: 0.3s; backdrop-filter: blur(5px);
+	}
+	.cip-close-btn:hover { background: rgba(255,0,68,0.5); border-color: #ff0044; color: #fff; transform: rotate(90deg); box-shadow: 0 0 15px rgba(255,0,68,0.5); }
+
 
 </style>
 </head>
@@ -816,6 +817,7 @@
 				<div class="tab active" onclick="switchTab('character')">角色</div>
 				<div class="tab" onclick="switchTab('skill')">技能</div>
 				<div class="tab" onclick="switchTab('enemy')">敌人</div>
+				<div class="tab" onclick="switchTab('buff')">状态</div>
 				<div class="tab" onclick="switchTab('effect')">效果</div>
 				<div class="tab" onclick="switchTab('item')">道具</div>
 				<div class="tab" onclick="switchTab('camera')">镜头</div>
@@ -855,9 +857,46 @@
 
 <div id="test-mode">
     <button class="exit-test-btn" onclick="exitTestMode()">← 返回编辑器</button>
+    <button class="test-help-btn" onclick="openTestHelp()">❓ 游戏说明</button>
     <button class="test-settings-btn" onclick="openTestSettings()">⚙️ 游戏设置</button>
+	<button class="char-info-btn" onclick="toggleCharInfoPanel()">👁️ 角色面板 [B]</button>
+    <div id="char-info-panel">
+	 <div class="cip-close-hint">— 点击任意空白处或按 B 键关闭 —</div>
+        </div>
     
-	<audio id="battle-bgm" loop></audio>
+    <audio id="battle-bgm" loop></audio>
+
+    <div class="modal-overlay" id="test-help-modal" style="display: none; z-index: 250;">
+        <div class="modal" style="width: 500px; border-color: #00bfff;">
+            <h3 style="margin-top: 0; border-bottom: 1px dashed #00bfff; padding-bottom: 10px; color: #00bfff;">📖 游戏操作与生存指南</h3>
+            <div style="line-height: 1.6; font-size: 14px; color: #ddd; max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+                
+                <h4 style="color: #ffcc00; margin: 10px 0 5px;">⚔️ 基础战斗与菜单</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><b>点按与拖拽：</b>菜单支持鼠标直接点击，也支持<b>按住上下拖拽</b>滑动。</li>
+                    <li><b>键盘支持：</b>你可以全程使用键盘！<b>↑ / ↓</b> 切换选项，<b>Enter</b> 确认，<b>Esc / Backspace</b> 取消返回。</li>
+                    <li><b>选择目标：</b>进入瞄准模式后，用鼠标点击敌人，或用键盘 <b>← / →</b> 切换目标，回车确认。</li>
+					<li><b>信息面板：</b>按下B键,可以查看角色的当前信息和面板.</li>
+                </ul>
+
+                <h4 style="color: #ff4444; margin: 15px 0 5px;">⚡ QTE 闪避系统</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li>当敌人发动带有 QTE 的猛烈攻击时，屏幕上会出现收缩的红绿光圈。</li>
+                    <li>在红圈收缩到<b>绿色区域</b>的瞬间，按下 <b>空格键 (Space)</b> 或 <b>点击/触摸屏幕</b> 即可完美闪避伤害！</li>
+                </ul>
+
+                <h4 style="color: #00ff00; margin: 15px 0 5px;">🛠️ 极客/开发者快捷键</h4>
+                <ul style="margin: 0; padding-left: 20px;">
+                    <li><b>[ Tab ]</b>：唤出 / 隐藏 开发者神之眼控制台 (可强改血量、刷怪、学习技能、查深度日志)。</li>
+                    <li><b>[ ~ ] (波浪号)</b>：在右侧唤出 / 隐藏 实时监控雷达面板 (查看当前机位和坐标)。</li>
+                    <li><b>[ R ]</b>：万能钥匙。如果遇到演出卡死、菜单消失或视角错误，按 R 键可强制重置舞台状态，挽救战局！</li>
+                </ul>
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="modal-close-btn" style="background: #00bfff;" onclick="closeTestHelp()">我准备好了！</button>
+            </div>
+        </div>
+    </div>
 
     <div class="modal-overlay" id="test-settings-modal" style="z-index: 200;">
         <div class="modal">
@@ -870,7 +909,7 @@
                 <label>🔊 音效音量 (SFX): <span id="sfx-vol-text">80%</span></label>
                 <input type="range" id="sfx-vol-slider" min="0" max="100" value="80" oninput="updateSfxVolume(this.value)">
             </div>
-			<div class="modal-form-group">
+            <div class="modal-form-group">
                 <label>🎬 回合切换动画等待:</label>
                 <select id="turn-wait-select" onchange="updateTurnWaitMode(this.value)">
                     <option value="enemy">仅敌人回合 (等待离开动画)</option>
@@ -1047,29 +1086,29 @@
 		if (savedProjSettings) projectSettings = Object.assign(projectSettings, JSON.parse(savedProjSettings));
 	} catch (e) { console.warn("读取全局设置失败", e); }
 
-    // 🌟 全局资源路径解析器 (读取模式接管版)
+// 🌟 全局资源路径解析器 (读取模式接管版)
 	function getAssetUrl(resName) {
 		if (!resName) return "";
 		if (battleRuntime.assetCache && battleRuntime.assetCache[resName]) return battleRuntime.assetCache[resName];
 
 		const resObj = editorData.resource[resName];
 		if (resObj) {
+			// ✨ 修复：从 editorData 内部读取设置，如果没有则给默认值
+			const pSet = editorData.projectSettings || { serverPrefix: "", readMode: "cloud_first" };
 			let local = resObj.localPath;
-			let server = (resObj.useServer && projectSettings.serverPrefix && resObj.localPath) ? projectSettings.serverPrefix + resObj.localPath : null;
+			let server = (resObj.useServer && pSet.serverPrefix && resObj.localPath) ? pSet.serverPrefix + resObj.localPath : null;
 			let fallback = resObj.fallbackUrl || resObj.url;
-			let mode = projectSettings.readMode || 'local_first';
+			let mode = pSet.readMode || 'cloud_first';
 
-			// 按模式直接返回最高优先级的有效链接
-			if (mode === 'cloud_first') return fallback || server || local || "";
+			if (mode === 'cloud_first') return server || fallback || local || "";
 			if (mode === 'local_first') return local || server || fallback || "";
-			if (mode === 'cloud_only') return fallback || server || "";
+			if (mode === 'cloud_only') return server || fallback || "";
 			if (mode === 'local_only') return local || "";
 		}
 		
 		if (resName.startsWith('http') || resName.startsWith('data:') || resName.includes('/')) return resName;
 		return "";
 	}
-	
 	// 🌟 原生 DOM 级媒体探针 (探测文件存不存在，完美绕过 Fetch CORS)
 	function testAssetLoad(url, type) {
 		return new Promise((resolve, reject) => {
@@ -1155,29 +1194,29 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 		const resObj = editorData.resource[resName];
 		if (!resObj) { devLog(`[预加载] ⚠️ 资源未配置: ${resName}`, 'warn'); return null; }
 
+		// ✨ 修复：从 editorData 内部读取设置
+		const pSet = editorData.projectSettings || { serverPrefix: "", readMode: "cloud_first" };
 		let urlsToTry = [];
 		let local = resObj.localPath;
-		let server = (resObj.useServer && projectSettings.serverPrefix && resObj.localPath) ? projectSettings.serverPrefix + resObj.localPath : null;
+		let server = (resObj.useServer && pSet.serverPrefix && resObj.localPath) ? pSet.serverPrefix + resObj.localPath : null;
 		let fallback = resObj.fallbackUrl || resObj.url;
-		let mode = projectSettings.readMode || 'local_first';
+		let mode = pSet.readMode || 'cloud_first';
 
-		// ⚖️ 核心算法：根据读取模式重新排兵布阵！
 		if (mode === 'cloud_first') {
-			if (fallback) urlsToTry.push(fallback);
 			if (server) urlsToTry.push(server);
+			if (fallback) urlsToTry.push(fallback);
 			if (local) urlsToTry.push(local);
 		} else if (mode === 'local_first') {
 			if (local) urlsToTry.push(local);
 			if (server) urlsToTry.push(server);
 			if (fallback) urlsToTry.push(fallback);
 		} else if (mode === 'cloud_only') {
-			if (fallback) urlsToTry.push(fallback);
 			if (server) urlsToTry.push(server);
+			if (fallback) urlsToTry.push(fallback);
 		} else if (mode === 'local_only') {
 			if (local) urlsToTry.push(local);
 		}
 
-		// 去重并过滤掉没配置的空链接
 		urlsToTry = [...new Set(urlsToTry.filter(u => u))];
 
 		for (let url of urlsToTry) {
@@ -1280,7 +1319,7 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
     }
 
     function toggleDevConsole() {
-        if (!isTestModeActive) return;
+        // ✨ 修复：移除 if (!isTestModeActive) return; 让它随时能被关闭
         isDevConsoleOpen = !isDevConsoleOpen;
         document.getElementById('dev-console').style.display = isDevConsoleOpen ? 'flex' : 'none';
         if (isDevConsoleOpen) { refreshDevDataPanel(); updateDevStatus(); }
@@ -1405,6 +1444,16 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 			'强力单体治愈': { type: 'heal_single', value: 800, description: '恢复我方单体生命值' },
 			'百分比破甲': { type: 'buff_defense', value: 0.3, description: '减少目标30%防御力' },
 		},
+		buff: {
+			'至臻 (测试)': { 
+				type: 'permanent', // permanent(永久) 或 temporary(临时)
+				duration: 0,       // 临时状态的持续回合数
+				trigger: 'onQteSuccess', // 触发钩子：完美闪避时
+				effectLink: '恢复AP', // 触发时调用的效果
+				anim: '',          // 触发时播放的特效
+				desc: '完美闪避敌方攻击时，获得极意，额外恢复行动点！' 
+			}
+		},
 		item: {
             '高级恢复药': { effects: ['强力单体治愈'], apCost: 1, sfx: '', camera: '', castText: '[使用者] 使用了 [道具]！', desc: '恢复大量生命值。' },
             '全能灵药': { effects: ['强力单体治愈', '回复AP', '回复MP'], apCost: 1, sfx: '', camera: '全局机位', castText: '[使用者] 捏碎了 [道具]！', desc: '一口气恢复所有状态！' }
@@ -1470,6 +1519,16 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 	}
 	function saveEngineSettings() {
 		localStorage.setItem('rpg_engine_settings', JSON.stringify(engineSettings));
+	}
+	
+	// 打开游戏说明面板
+	function openTestHelp() {
+		document.getElementById('test-help-modal').style.display = 'flex';
+	}
+
+	// 关闭游戏说明面板
+	function closeTestHelp() {
+		document.getElementById('test-help-modal').style.display = 'none';
 	}
 
 	// 打开设置面板 (载入当前滑块位置)
@@ -1720,7 +1779,7 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 	
 	// 🌟 全屏大招 CG 与 透明转场播放器 (接入缓存池版)
 	function playFullscreenCG(resName) {
-		if (!isTestModeActive) return Promise.resolve(); 
+		// ✨ 修复：移除了 !isTestModeActive 拦截，允许在预加载黑屏时播放！
 		return new Promise((resolve) => {
 			let finalUrl = getAssetUrl(resName);
 			if (!finalUrl) return resolve();
@@ -1731,7 +1790,7 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 			cgContainer.style.width = '100%'; cgContainer.style.height = '100%';
 			cgContainer.style.backgroundColor = 'transparent'; 
 			cgContainer.style.pointerEvents = 'none'; 
-			cgContainer.style.zIndex = '100'; 
+			cgContainer.style.zIndex = '4000'; // ✨ 修复：将层级提高到百万级，确保能压住所有黑幕！
 			cgContainer.style.display = 'flex'; cgContainer.style.justifyContent = 'center'; cgContainer.style.alignItems = 'center';
 			
 			const isVideo = finalUrl.toLowerCase().match(/\.(mp4|webm|mov)$/);
@@ -1750,7 +1809,9 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 					{ opacity: 1, transform: 'scale(1)', offset: 0.85 }, { opacity: 0, transform: 'scale(0.95)' }
 				], { duration: 1500, easing: 'ease-in-out' }).onfinish = () => { cgContainer.remove(); resolve(); };
 			}
-			document.getElementById('game-scene').appendChild(cgContainer);
+			
+			// ✨ 修复：不要挂载在隐藏的 #game-scene 里，直接挂载在最外层的 document.body 上！
+			document.body.appendChild(cgContainer); 
 		});
 	}
 	
@@ -2091,6 +2152,19 @@ function updateFieldState() {
 				Object.assign(editorData, parsedData);
 			} catch (error) { console.error("❌ 解析本地存档失败", error); }
 		}
+		try {
+			const oldSettings = localStorage.getItem('rpg_project_settings');
+			if (oldSettings && !editorData.projectSettings) {
+				editorData.projectSettings = JSON.parse(oldSettings);
+				console.log("[系统] 已将旧版本地网络设置无缝迁移至新版存档结构中。");
+				// 迁移完成后，顺手把旧垃圾清理掉，保持浏览器干净
+				localStorage.removeItem('rpg_project_settings');
+				// 静默保存一次，让迁移后的数据彻底固化到大存档里
+				saveToLocal(false); 
+			}
+		} catch (e) { 
+            console.warn("迁移旧版网络设置失败", e); 
+        }
 	}
 
 	// ==========================================
@@ -2588,6 +2662,9 @@ function renderList() {
 				else if (currentTab === 'effect') {
 					editorData.effect[name] = { type: 'damage_single', value: 0, description: '' };
 				}
+				else if (currentTab === 'buff') {
+					editorData.buff[name] = { type: 'permanent', duration: 0, trigger: 'onTurnStart', effectLink: '', anim: '', desc: '' };
+				}
 				else if (currentTab === 'camera') {
                     editorData.camera[name] = '0.5s:scale(1.05)+translate(0, 0)'; 
                 }
@@ -2764,6 +2841,9 @@ function renderList() {
 					<div style="flex:1"><label>基础攻击力 (ATK):</label><input id="edit-atk" type="number" value="${data.atk || 50}"></div>
 					<div style="flex:1"><label>每回合行动点 (AP):</label><input id="edit-ap" type="number" value="${data.ap || 3}"></div>
 				</div>
+				<div class="modal-sub-title" style="color:#00bfff;">📜 角色面板设定</div>
+				<div class="modal-form-group"><label style="color:#00bfff;">面板专属立绘 (不填则无):</label><select id="edit-char-portrait">${getMediaOpts(data.portrait)}</select></div>
+				<div class="modal-form-group"><label>角色简介 (用于面板展示):</label><textarea id="edit-char-desc" rows="2">${data.desc || ''}</textarea></div>
 				<div class="modal-sub-title">动作与待机状态 (从资源库选取)</div>
 				<div class="modal-form-group"><label style="color:#ffcc00;">入场动画 (Intro):</label><select id="edit-intro">${getMediaOpts(data.introAnim)}</select></div>
 				<div class="modal-form-group"><label>普通待机 (敌方回合/默认):</label><select id="edit-idle">${getMediaOpts(data.idleAnim)}</select></div>
@@ -2783,7 +2863,7 @@ function renderList() {
                 </div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:2"><label>受击特效 (资源库):</label><select id="edit-atk-hiteff">${getMediaOpts(data.atkHitEffect)}</select></div>
-					<div style="flex:1"><label>播放时机 (秒):</label><input id="edit-atk-hitdelay" type="number" step="0.1" value="${data.atkHitDelay || 0.3}"></div>
+					<div style="flex:1"><label>播放时机 (秒):</label><input id="edit-atk-hitdelay" type="text" value="${data.atkHitDelay || '0.3'}" placeholder="单段0.3，多段如 0.3;0.6"></div>
 				</div>
 				<div class="modal-form-group">
 					<label style="color:#00ffff;">普攻宣告 UI 文本 (支持 [使用者] [目标] [技能]):</label>
@@ -2792,6 +2872,7 @@ function renderList() {
 
 				<div class="modal-sub-title">技能配置 <span style="color: #ff4444; cursor: pointer; font-size: 14px;" onclick="addSkillRow()">+ 添加技能</span></div>
 				<div id="character-skills-container">${skillsHtml}</div>
+				
 				<div class="modal-sub-title" style="margin-top: 20px;">携带道具 (Inventory) <span style="color: #ffcc00; cursor: pointer; font-size: 14px;" onclick="addCharItemRow()">+ 添加道具</span></div>
 				<div id="character-items-container">
                     ${(data.items || []).map(it => `
@@ -2799,6 +2880,23 @@ function renderList() {
                             <span class="remove-btn" onclick="this.parentElement.remove()">X</span>
                             <div style="flex:2" class="modal-form-group" style="margin-bottom:0;"><label>道具名称:</label><select class="char-item-select">${Object.keys(editorData.item).map(i => `<option ${i===it.name?'selected':''}>${i}</option>`).join('')}</select></div>
                             <div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>携带数量:</label><input type="number" class="char-item-count" value="${it.count}"></div>
+                        </div>
+                    `).join('')}
+                </div>
+
+				<div class="modal-sub-title" style="margin-top: 20px; color:#00bfff;">🛡️ 初始状态与被动 (Buffs) <span style="color: #ffcc00; cursor: pointer; font-size: 14px;" onclick="addCharBuffRow()">+ 挂载状态</span></div>
+				<div id="character-buffs-container">
+                    ${(data.buffs || []).map(b => `
+                        <div class="skill-row" style="display:flex; gap:10px; align-items:center;">
+                            <span class="remove-btn" onclick="this.parentElement.remove()">X</span>
+                            <div style="flex:2" class="modal-form-group" style="margin-bottom:0;">
+                                <label>状态名称:</label>
+                                <select class="char-buff-select">${Object.keys(editorData.buff || {}).map(i => `<option ${i===b.name?'selected':''}>${i}</option>`).join('')}</select>
+                            </div>
+                            <div style="flex:1" class="modal-form-group" style="margin-bottom:0;">
+                                <label>持续回合:</label>
+                                <input type="number" class="char-buff-duration" value="${b.duration}" placeholder="-1为永久" title="-1代表永久被动，大于0代表持续回合数">
+                            </div>
                         </div>
                     `).join('')}
                 </div>
@@ -2835,7 +2933,7 @@ function renderList() {
 			html = `
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:1"><label>敌方生命值 (HP):</label><input id="edit-enemy-hp" type="number" value="${data.hp}"></div>
-					<div style="flex:1"><label>基础攻击力 (ATK):</label><input id="edit-enemy-atk" type="number" value="${data.atk || 50}"></div>
+					<div style="flex:1"><label>基础攻击力 (ATK):</label><input id="edit-enemy-atk" type="text" value="${data.atk || 50}" placeholder="单段填50，多段如 20/30"></div>
 					<div style="flex:1"><label>普攻权重:</label><input id="edit-enemy-normal-weight" type="number" value="${data.normalAttackWeight || 20}"></div>
 				</div>
 				<div class="modal-sub-title" style="color:#ff0044; border-color:#ff0044;">⚔️ 处刑设定 (Execution)</div>
@@ -2883,7 +2981,11 @@ function renderList() {
 				</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:2"><label>受击特效 (资源库):</label><select id="edit-enemy-atk-hiteff">${getMediaOpts(data.atkHitEffect)}</select></div>
-					<div style="flex:1"><label>播放时机 (秒):</label><input id="edit-enemy-atk-hitdelay" type="number" step="0.1" value="${data.atkHitDelay || 0.3}"></div>
+					<div style="flex:1"><label>播放时机 (秒):</label><input id="edit-enemy-atk-hitdelay" type="text" value="${data.atkHitDelay || 0.3}" placeholder="单段0.3，多段如 0.3;0.8"></div>
+				</div>
+				<div class="modal-form-group">
+					<label style="color:#ffd700;">伤害判定点 (动画开始几秒后扣血，多段用分号;隔开):</label>
+					<input id="edit-enemy-atk-damagedelay" type="text" value="${data.atkDamageDelay || '0.3'}" placeholder="单段0.3，多段如 0.3;0.8">
 				</div>
 				<div class="modal-form-group">
 					<label style="color:#00ffff;">普攻宣告 UI 文本 (支持 [使用者] [目标] [技能]):</label>
@@ -2898,7 +3000,7 @@ function renderList() {
 				<div class="modal-sub-title">技能配置 <span style="color: #ff4444; cursor: pointer; font-size: 14px;" onclick="addEnemySkillRow()">+ 添加技能</span></div>
 				<div id="enemy-skills-container">${skillsHtml}</div>
 			`;
-		} else if (type === 'skill') {
+		}else if (type === 'skill') {
 			const data = editorData.skill[itemName];
 			const uType = data.userType || '玩家'; 
 			html = `
@@ -2909,7 +3011,7 @@ function renderList() {
 				</div>
 				<div class="modal-form-group" style="display:flex; gap:10px; background:#111; padding:10px; border:1px solid #444;">
 					<div style="flex:2"><label style="color:#00bfff;">受击专属特效 (资源库):</label><select id="edit-skill-hiteff">${getMediaOpts(data.hitEffect)}</select></div>
-					<div style="flex:1"><label style="color:#00bfff;">播放时机 (秒):</label><input id="edit-skill-hitdelay" type="number" step="0.1" value="${data.hitDelay || 0.3}"></div>
+					<div style="flex:1"><label style="color:#00bfff;">播放时机 (秒):</label><input id="edit-skill-hitdelay" type="text" value="${data.hitDelay || '0.3'}" placeholder="单段0.3，多段如 0.3;0.6"></div>
 				</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:1"><label>等级:</label><input id="edit-level" type="text" value="${data.level}"></div>
@@ -2922,11 +3024,17 @@ function renderList() {
 				</div>
 				<div class="modal-form-group">
 					<label style="color:#ffd700;">伤害判定点 (动画开始几秒后扣血):</label>
-					<input id="edit-delay" type="number" step="0.1" value="${data.damageDelay || 0}">
+					<input id="edit-delay" type="text" value="${data.damageDelay || 0}" placeholder="单段0.5，多段如 0.5;0.8">
 				</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:1"><label>使用方:</label><select id="edit-userType"><option ${uType==='玩家'?'selected':''}>玩家</option><option ${uType==='敌人'?'selected':''}>敌人</option><option ${uType==='通用'?'selected':''}>通用</option></select></div>
 					<div style="flex:1"><label>使用目标:</label><select id="edit-target"><option ${data.target==='敌方单体'?'selected':''}>敌方单体</option><option ${data.target==='敌方全体'?'selected':''}>敌方全体</option><option ${data.target==='自身 (增益/恢复)'?'selected':''}>自身 (增益/恢复)</option></select></div>
+				</div>
+
+				<div class="modal-form-group" style="display:flex; gap:10px; align-items:center; background:rgba(0,255,0,0.05); padding:10px; border:1px dashed #00ff00;">
+					<div style="flex:2"><label style="color:#00ff00;">释放后附加状态 (Buff):</label><select id="edit-skill-buff" style="border-color:#00ff00;"><option value="">-- 不附加状态 --</option>${Object.keys(editorData.buff || {}).map(b => `<option value="${b}" ${data.applyBuff === b ? 'selected' : ''}>${b}</option>`).join('')}</select></div>
+					<div style="flex:1"><label style="color:#00ff00;">持续回合:</label><input id="edit-skill-buff-dur" type="number" value="${data.buffDuration !== undefined ? data.buffDuration : 3}" title="-1为永久"></div>
+					<div style="flex:1"><label style="color:#00ff00;">状态加给谁:</label><select id="edit-skill-buff-target"><option value="target" ${data.buffTarget !== 'self' ? 'selected' : ''}>技能目标</option><option value="self" ${data.buffTarget === 'self' ? 'selected' : ''}>释放者自身</option></select></div>
 				</div>
 				<div class="modal-form-group"><label>触发效果 (底层逻辑):</label><select id="edit-effect-link"><option value="">-- 请选择效果 --</option>${Object.keys(editorData.effect).map(e => `<option value="${e}" ${data.effectLink === e ? 'selected' : ''}>${e}</option>`).join('')}</select></div>
 				<div class="modal-form-group"><label>效果说明:</label><textarea id="edit-effect" rows="2">${data.effect}</textarea></div>
@@ -2937,7 +3045,49 @@ function renderList() {
 			const data = editorData.effect[itemName];
 			html = `
 				<div class="modal-form-group"><label>效果类型:</label><select id="edit-eff-type"><option value="damage_single" ${data.type==='damage_single'?'selected':''}>单体伤害</option><option value="damage_all" ${data.type==='damage_all'?'selected':''}>群体伤害</option><option value="heal_hp" ${['heal_hp', 'heal_single'].includes(data.type)?'selected':''}>恢复生命值 (HP)</option><option value="recover_mp" ${data.type==='recover_mp'?'selected':''}>恢复魔法值 (MP)</option><option value="recover_ap" ${data.type==='recover_ap'?'selected':''}>增加行动点 (AP)</option></select></div>
-				<div class="modal-form-group"><label>基础数值:</label><input id="edit-eff-value" type="number" value="${data.value}"></div>
+				<div class="modal-form-group"><label>基础数值:</label><input id="edit-eff-value" type="text" value="${data.value}" placeholder="单段500，多段如 200/300"></div>
+			`;
+		} else if (type === 'buff') {
+			if (!editorData.buff[itemName]) editorData.buff[itemName] = { trigger: 'onQteSuccess', effects: [], anim: '', desc: '' };
+			const data = editorData.buff[itemName];
+			
+			// ✨ 兼容老旧版本的单效果数据结构
+			const existingEffects = data.effects || (data.effectLink ? [data.effectLink] : []);
+			
+			const effHtml = existingEffects.map(eff => `
+                <div style="display:flex; gap:10px; margin-bottom:5px; align-items:center;">
+                    <select class="buff-eff-select" style="flex:1;">${Object.keys(editorData.effect).map(e => `<option ${e===eff?'selected':''}>${e}</option>`).join('')}</select>
+                    <span style="color:red; cursor:pointer; font-weight:bold;" onclick="this.parentElement.remove()">X</span>
+                </div>
+            `).join('');
+
+			html = `
+				<div class="modal-sub-title" style="color:#00bfff; margin-top:0;">⚡ 触发条件与动作</div>
+				<div class="modal-form-group">
+					<label>触发时机钩子 (Event Hook):</label>
+					<select id="edit-buff-trigger">
+						<option value="onTurnStart" ${data.trigger==='onTurnStart'?'selected':''}>回合开始时 (自然流逝/生效)</option>
+						<option value="onHit" ${data.trigger==='onHit'?'selected':''}>受到伤害时 (反伤/受击回蓝)</option>
+						<option value="onQteSuccess_Hit" ${data.trigger==='onQteSuccess_Hit'?'selected':''}>完美闪避时·每次 (单击判定)</option>
+						<option value="onQteSuccess_Action" ${data.trigger==='onQteSuccess_Action'?'selected':''}>完美闪避时·每组 (无伤躲过一整套连招)</option>
+						<option value="onQteSuccess_Turn" ${data.trigger==='onQteSuccess_Turn'?'selected':''}>完美闪避时·每回合 (敌方回合全程无伤)</option>
+					</select>
+				</div>
+				<div class="modal-sub-title">触发效果叠加 (可多选) <span style="color:#00bfff; cursor:pointer; float:right;" onclick="addBuffEffectRow()">+ 叠加效果</span></div>
+                <div id="buff-effects-container" style="border:1px solid #444; padding:10px; background:#111; margin-bottom:15px;">${effHtml}</div>
+				
+				<div class="modal-form-group">
+					<label style="color:#dda0dd;">触发时播放的特效 (资源库):</label>
+					<select id="edit-buff-anim">${getMediaOpts(data.anim)}</select>
+				</div>
+				<div class="modal-form-group">
+					<label style="color:#ffcc00;">触发时全屏剧情 CG (资源库同步播放):</label>
+					<select id="edit-buff-cg">${getMediaOpts(data.cg)}</select>
+				</div>
+				<div class="modal-form-group">
+					<label>状态说明:</label>
+					<textarea id="edit-buff-desc" rows="2">${data.desc || ''}</textarea>
+				</div>
 			`;
 		} else if (type === 'camera') {
 			const data = editorData.camera[itemName];
@@ -3004,8 +3154,10 @@ function renderList() {
 			const data = editorData.uiSfx || {};
 			const getAudioOpts = (sel) => `<option value="">-- 无音效 --</option>` + Object.keys(editorData.resource).filter(k=>editorData.resource[k].type==='audio').map(c => `<option value="${c}" ${sel === c ? 'selected' : ''}>${c}</option>`).join('');
 			const getMediaOpts = (sel) => `<option value="">-- 无 (None) --</option>` + Object.keys(editorData.resource).filter(k=>['image', 'video'].includes(editorData.resource[k].type)).map(c => `<option value="${c}" ${sel === c ? 'selected' : ''}>${c}</option>`).join('');
+			const pSet = editorData.projectSettings || { serverPrefix: "", readMode: "cloud_first" };
+			const mode = pSet.readMode || 'cloud_first';
 			
-			const mode = projectSettings.readMode || 'local_first';
+			
 			html = `
 				<div class="modal-sub-title" style="color:#00bfff;">🌐 核心网络设置</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
@@ -3021,7 +3173,7 @@ function renderList() {
 				</div>
                 <div class="modal-form-group">
                     <label>资源服务器根目录前缀 (包含末尾的/):</label>
-                    <input id="sys-server-prefix" type="text" value="${projectSettings.serverPrefix || ''}" placeholder="https://www.google.com/">
+                    <input id="sys-server-prefix" type="text" value="${pSet.serverPrefix || ''}" placeholder="https://www.google.com/">
                 </div>
 				<div class="modal-sub-title">系统交互音效配置</div>
 				<div class="modal-form-group"><label style="color:#00b400;">▶ 轮到玩家回合:</label><select id="sfx-turnStart">${getAudioOpts(data.turnStart)}</select></div>
@@ -3064,7 +3216,16 @@ function renderList() {
                 <div class="modal-form-group"><label>消耗行动点 (AP):</label><input id="edit-item-ap" type="number" value="${data.apCost || 1}"></div>
                 <div class="modal-form-group"><label style="color:#00b400;">使用时镜头:</label><select id="edit-item-cam"><option value="">-- 默认 --</option>${Object.keys(editorData.camera).map(c => `<option value="${c}" ${data.camera === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
                 <div class="modal-form-group"><label style="color:#ff4444;">使用音效:</label><select id="edit-item-sfx">${getAudioOpts(data.sfx)}</select></div>
+                
+				<div class="modal-form-group"><label style="color:#00bfff;">使用/命中特效 (资源库):</label><select id="edit-item-anim">${getMediaOpts(data.anim)}</select></div>
+
                 <div class="modal-form-group"><label style="color:#00ffff;">宣告 UI 文本:</label><input id="edit-item-casttext" type="text" value="${data.castText || '[使用者] 使用了 [道具]！'}"></div>
+                
+                <div class="modal-form-group" style="display:flex; gap:10px; align-items:center; background:rgba(0,255,0,0.05); padding:10px; border:1px dashed #00ff00;">
+                    <div style="flex:2"><label style="color:#00ff00;">使用后附加状态 (Buff):</label><select id="edit-item-buff" style="border-color:#00ff00;"><option value="">-- 不附加状态 --</option>${Object.keys(editorData.buff || {}).map(b => `<option value="${b}" ${data.applyBuff === b ? 'selected' : ''}>${b}</option>`).join('')}</select></div>
+                    <div style="flex:1"><label style="color:#00ff00;">持续回合:</label><input id="edit-item-buff-dur" type="number" value="${data.buffDuration !== undefined ? data.buffDuration : 3}" title="-1为永久"></div>
+                    <div style="flex:1"><label style="color:#00ff00;">状态加给谁:</label><select id="edit-item-buff-target"><option value="target" ${data.buffTarget !== 'self' ? 'selected' : ''}>使用目标</option><option value="self" ${data.buffTarget === 'self' ? 'selected' : ''}>使用者自身</option></select></div>
+                </div>
                 <div class="modal-sub-title">触发效果叠加 (可多选) <span style="color:#00bfff; cursor:pointer; float:right;" onclick="addItemEffectRow()">+ 叠加效果</span></div>
                 <div id="item-effects-container" style="border:1px solid #444; padding:10px; background:#111;">${effHtml}</div>
                 <div class="modal-form-group" style="margin-top:15px;"><label>道具说明:</label><textarea id="edit-item-desc" rows="2">${data.desc || ''}</textarea></div>
@@ -3072,7 +3233,7 @@ function renderList() {
         }
 		
 		// ✨ 为常规实体统一添加无感知重命名框
-		if (['character', 'enemy', 'skill', 'effect', 'camera'].includes(type)) {
+		if (['character', 'enemy', 'skill', 'effect', 'camera', 'buff', 'item'].includes(type)) {
 			const isBuiltInCam = type === 'camera' && ['玩家机位', '操作机位', '瞄准机位', '敌方机位', '全局机位', '默认攻击特写', '地震抖动特效'].includes(itemName);
 			const disableAttr = isBuiltInCam ? 'disabled title="内置机位不可改名"' : '';
 			const renameHtml = `
@@ -3135,6 +3296,21 @@ function renderList() {
         row.innerHTML = `<span class="remove-btn" onclick="this.parentElement.remove()">X</span><div style="flex:2" class="modal-form-group" style="margin-bottom:0;"><label>道具名称:</label><select class="char-item-select">${options}</select></div><div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>携带数量:</label><input type="number" class="char-item-count" value="1"></div>`;
         container.appendChild(row);
 	}
+	function addCharBuffRow() {
+		const container = document.getElementById('character-buffs-container');
+		const row = document.createElement('div');
+		row.className = 'skill-row'; row.style.display = 'flex'; row.style.gap = '10px'; row.style.alignItems = 'center';
+        const options = Object.keys(editorData.buff || {}).map(i => `<option>${i}</option>`).join('');
+        row.innerHTML = `<span class="remove-btn" onclick="this.parentElement.remove()">X</span><div style="flex:2" class="modal-form-group" style="margin-bottom:0;"><label>状态名称:</label><select class="char-buff-select">${options}</select></div><div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>持续回合:</label><input type="number" class="char-buff-duration" value="-1" placeholder="-1为永久"></div>`;
+        container.appendChild(row);
+	}
+	function addBuffEffectRow() {
+        const container = document.getElementById('buff-effects-container');
+        const div = document.createElement('div');
+        div.style = 'display:flex; gap:10px; margin-bottom:5px; align-items:center;';
+        div.innerHTML = `<select class="buff-eff-select" style="flex:1;">${Object.keys(editorData.effect).map(e => `<option>${e}</option>`).join('')}</select><span style="color:red; cursor:pointer; font-weight:bold;" onclick="this.parentElement.remove()">X</span>`;
+        container.appendChild(div);
+    }
     function addItemEffectRow() {
         const container = document.getElementById('item-effects-container');
         const div = document.createElement('div');
@@ -3266,6 +3442,9 @@ function renderList() {
 			editorData.uiSfx.turnEndAnim = document.getElementById('ui-anim-turnEnd').value;
 			editorData.uiSfx.qteSuccess = document.getElementById('sfx-qteSuccess').value;
 			editorData.uiSfx.qteFail = document.getElementById('sfx-qteFail').value;
+			if (!editorData.projectSettings) editorData.projectSettings = {};
+			editorData.projectSettings.serverPrefix = document.getElementById('sys-server-prefix').value.trim();
+			editorData.projectSettings.readMode = document.getElementById('sys-read-mode').value;
 			
 			// ✨ 集中处理并保存网络配置
 			projectSettings.serverPrefix = document.getElementById('sys-server-prefix').value.trim();
@@ -3313,6 +3492,8 @@ function renderList() {
 			d.mp = document.getElementById('edit-mp').value;
 			d.atk = document.getElementById('edit-atk').value;
 			d.ap = document.getElementById('edit-ap').value;
+			d.portrait = document.getElementById('edit-char-portrait').value; // ✨ 保存立绘
+			d.desc = document.getElementById('edit-char-desc').value; // ✨ 保存简介
 			d.introAnim = document.getElementById('edit-intro').value;
 			d.idleAnim = document.getElementById('edit-idle').value;
 			d.turnIdleAnim = document.getElementById('edit-turn-idle').value;
@@ -3333,6 +3514,10 @@ function renderList() {
             name: row.querySelector('.char-item-select').value,
             count: parseInt(row.querySelector('.char-item-count').value) || 1
         }));
+		    d.buffs = Array.from(document.querySelectorAll('#character-buffs-container .skill-row')).map(row => ({
+				name: row.querySelector('.char-buff-select').value,
+				duration: parseInt(row.querySelector('.char-buff-duration').value) || -1
+			}));
 
 			const skillRows = document.querySelectorAll('#character-skills-container .skill-row');
 			d.skills_with_config = Array.from(skillRows).map(row => ({
@@ -3371,6 +3556,7 @@ function renderList() {
 				d.atkReturnDelay = document.getElementById('edit-enemy-atk-return').value;
 				d.atkHitEffect = document.getElementById('edit-enemy-atk-hiteff').value;
 				d.atkHitDelay = document.getElementById('edit-enemy-atk-hitdelay').value;
+				d.atkDamageDelay = document.getElementById('edit-enemy-atk-damagedelay').value;
 				d.atkCastText = document.getElementById('edit-enemy-atk-casttext').value;
 				d.atkQteEnable = document.getElementById('edit-enemy-atk-qte').checked;
                 d.atkQteVal = document.getElementById('edit-enemy-atk-qte-val').value;
@@ -3404,10 +3590,20 @@ function renderList() {
 			d.effectLink = document.getElementById('edit-effect-link').value;
 			d.effect = document.getElementById('edit-effect').value;
 			d.desc = document.getElementById('edit-desc').value;
+			d.applyBuff = document.getElementById('edit-skill-buff').value; // ✨ 保存技能挂载的Buff
+			d.buffDuration = parseInt(document.getElementById('edit-skill-buff-dur').value) || -1; // ✨ 保存时长
+			d.buffTarget = document.getElementById('edit-skill-buff-target').value; // ✨ 保存加给谁
 
 		} else if (currentEditingType === 'effect') {
 			editorData.effect[currentEditingItem].type = document.getElementById('edit-eff-type').value;
 			editorData.effect[currentEditingItem].value = document.getElementById('edit-eff-value').value;
+		} else if (currentEditingType === 'buff') {
+			const d = editorData.buff[currentEditingItem];
+			d.trigger = document.getElementById('edit-buff-trigger').value;
+			d.effects = Array.from(document.querySelectorAll('.buff-eff-select')).map(sel => sel.value); // ✨ 收集多条效果
+			d.anim = document.getElementById('edit-buff-anim').value;
+			d.cg = document.getElementById('edit-buff-cg').value; 
+			d.desc = document.getElementById('edit-buff-desc').value;
 		} else if (currentEditingType === 'camera') {
 			editorData.camera[currentEditingItem] = document.getElementById('edit-camera-frames').value;
 		} else if (currentEditingType === 'item') {
@@ -3415,13 +3611,17 @@ function renderList() {
             d.apCost = document.getElementById('edit-item-ap').value;
             d.camera = document.getElementById('edit-item-cam').value;
             d.sfx = document.getElementById('edit-item-sfx').value;
+			d.anim = document.getElementById('edit-item-anim').value;
             d.castText = document.getElementById('edit-item-casttext').value;
             d.desc = document.getElementById('edit-item-desc').value;
             d.effects = Array.from(document.querySelectorAll('.item-eff-select')).map(sel => sel.value);
+			d.applyBuff = document.getElementById('edit-item-buff').value; // ✨ 保存道具附加的Buff
+			d.buffDuration = parseInt(document.getElementById('edit-item-buff-dur').value) || -1; // ✨ 保存时长
+			d.buffTarget = document.getElementById('edit-item-buff-target').value; // ✨ 保存加给谁
         }
 
 		// ✨✨✨ 终极拦截：处理重命名与全局级联同步 ✨✨✨
-		if (['character', 'enemy', 'skill', 'effect', 'camera'].includes(currentEditingType)) {
+		if (['character', 'enemy', 'skill', 'effect', 'camera', 'buff', 'item'].includes(currentEditingType)) {
 			const nameInput = document.getElementById('edit-item-name');
 			if (nameInput && !nameInput.disabled) {
 				const newName = nameInput.value.trim();
@@ -3463,6 +3663,23 @@ function renderList() {
 						});
 						Object.values(editorData.enemy).forEach(enemy => {
 							if(enemy.skills_with_weights) enemy.skills_with_weights.forEach(s => { if(s.camera === oldName) s.camera = newName; });
+						});
+					}
+					else if (currentEditingType === 'buff') {
+						Object.values(editorData.character).forEach(char => { 
+							if(char.buffs) {
+								char.buffs.forEach(b => { 
+									if(b.name === oldName) b.name = newName; 
+								}); 
+							}
+						});
+					}
+					 else if (currentEditingType === 'item') {
+						// ✨ 道具改名时，同步更新角色背包里的道具名称
+						Object.values(editorData.character).forEach(char => {
+							if (char.items) {
+								char.items.forEach(it => { if (it.name === oldName) it.name = newName; });
+							}
 						});
 					}
 					showToast(`✅ 成功重命名为: ${newName}`, "#00b400");
@@ -3532,7 +3749,8 @@ function fillEnemyField(isMidBattle = false) {
 		battleRuntime.field.push({
 			name: eName,
 			hp: parseInt(eData.hp),
-			maxHp: parseInt(eData.hp)
+			maxHp: parseInt(eData.hp),
+			buffs: [],
 		});
 		battleRuntime.poolIndex++;
 
@@ -3614,6 +3832,7 @@ function enterTestMode() {
 	battleRuntime.playerAP = parseInt(playerStats.ap || 3); // ✨ 战斗开始满 AP
     battleRuntime.playerMaxAP = battleRuntime.playerAP; // 记下最大值
 	battleRuntime.inventory = {};
+	battleRuntime.playerBuffs = playerStats.buffs ? JSON.parse(JSON.stringify(playerStats.buffs)) : [];
     if (playerStats.items) {
         playerStats.items.forEach(it => { battleRuntime.inventory[it.name] = it.count; });
     }
@@ -3724,6 +3943,7 @@ function enterTestMode() {
         // 4. CG 播完了，正式交出控制权
         battleState = 'MENU';
         if (editorData.uiSfx && editorData.uiSfx.turnStart) playSFX(editorData.uiSfx.turnStart); 
+		processTurnStartBuffs();
         renderMenu('main');
     }, 1500);
 }
@@ -3733,6 +3953,9 @@ function enterTestMode() {
 		document.getElementById('test-mode').style.display = 'none';
 		document.getElementById('editor-mode').style.display = 'flex';
 		document.getElementById('battle-bgm').pause(); 
+		if (isDevConsoleOpen) toggleDevConsole();
+        document.getElementById('dev-monitor-sidebar').classList.remove('active');
+        if (typeof monitorInterval !== 'undefined' && monitorInterval) clearInterval(monitorInterval);
 
 		// 🛑 核心防御：强制重置镜头与舞台，杀掉所有残留动作
 		const stage = document.getElementById('battle-stage');
@@ -3770,7 +3993,7 @@ function enterTestMode() {
 		msg.className = 'log-msg';
 		msg.innerText = text;
 		combatLog.prepend(msg);
-		if(combatLog.children.length > 5) combatLog.removeChild(combatLog.lastChild);
+		if(combatLog.children.length > 10) combatLog.removeChild(combatLog.lastChild);
 	}
 
 	function updateInfoPanel() {
@@ -3959,17 +4182,118 @@ function enterTestMode() {
         menuList.style.transform = `translateY(0px)`;
     }
 	
-	//敌人回合参数
-	// 🌟 敌方回合核心逻辑 (已接入动态镜头与聚光灯调度、QTE系统)
+	// 🌟 全能状态挂载器 (给指定目标上 Buff)
+	function addBuff(targetType, targetIdx, buffName, customDuration = null) {
+		if (!buffName || !editorData.buff[buffName]) return;
+		const buffDef = editorData.buff[buffName];
+		const duration = customDuration !== null ? customDuration : buffDef.duration;
+
+		let targetBuffs = []; let targetName = '';
+		if (targetType === 'player') { targetBuffs = battleRuntime.playerBuffs; targetName = activePlayer.split(' ')[0]; } 
+		else { 
+			const enemy = battleRuntime.field[targetIdx];
+			if (!enemy || enemy.hp <= 0) return;
+			if (!enemy.buffs) enemy.buffs = []; // 确保敌人有 Buff 栏
+			targetBuffs = enemy.buffs; targetName = enemy.name;
+		}
+
+		// 检查是否已有同名 Buff，有则刷新时间，无则添加
+		const existing = targetBuffs.find(b => b.name === buffName);
+		if (existing) { existing.duration = duration; addLog(`🔄 [${targetName}] 的状态【${buffName}】已刷新！`); } 
+		else { targetBuffs.push({ name: buffName, duration: duration }); addLog(`🆙 [${targetName}] 获得了状态【${buffName}】！`); }
+	}
+
+	// 🌟 全能被动状态雷达与触发器 (双向打击版)
+	function triggerBuff(hookName, targetType = 'player', targetIdx = null) {
+		let targetBuffs = []; let targetName = '';
+		if (targetType === 'player') { targetBuffs = battleRuntime.playerBuffs || []; targetName = activePlayer.split(' ')[0]; } 
+		else {
+			const enemy = battleRuntime.field[targetIdx];
+			if (!enemy || enemy.hp <= 0) return;
+			targetBuffs = enemy.buffs || []; targetName = enemy.name;
+		}
+
+		targetBuffs.forEach(pb => {
+			const buffDef = editorData.buff[pb.name];
+			if (buffDef && buffDef.trigger === hookName) {
+				devLog(`[被动系统] [${targetName}] 满足 [${hookName}]，触发: ${pb.name}`, 'sys');
+				if (buffDef.anim) spawnHitEffect(targetType === 'player' ? null : targetIdx, buffDef.anim, targetType === 'player');
+				
+				if (buffDef.cg) playFullscreenCG(buffDef.cg); 
+				
+				// ✨ 兼容老旧版本的存档，把可能存在的单效果组合成数组
+				let effectsToTrigger = buffDef.effects || [];
+				if (buffDef.effectLink && effectsToTrigger.length === 0) effectsToTrigger.push(buffDef.effectLink);
+
+				// ✨ 循环触发所有效果
+				effectsToTrigger.forEach(effName => {
+					if (editorData.effect[effName]) {
+						const eff = editorData.effect[effName]; const val = parseInt(eff.value);
+
+						if (['heal_hp', 'recover_mp', 'recover_ap', 'heal_single'].includes(eff.type)) {
+							let typeText = eff.type.includes('hp') ? 'HP' : (eff.type.includes('mp') ? 'MP' : 'AP');
+							addLog(`✨ [${targetName}] 的状态 [${pb.name}] 发动！恢复 ${val} 点 ${typeText}！`);
+							if (targetType === 'player') {
+								if (eff.type === 'heal_hp' || eff.type === 'heal_single') { battleRuntime.playerHP = Math.min(parseInt(editorData.character[activePlayer].hp), battleRuntime.playerHP + val); spawnFloatingText('player', val, 'heal_hp'); }
+								if (eff.type === 'recover_mp') { battleRuntime.playerMP = Math.min(parseInt(editorData.character[activePlayer].mp), battleRuntime.playerMP + val); spawnFloatingText('player', val, 'recover_mp'); }
+								if (eff.type === 'recover_ap') { battleRuntime.playerAP += val; spawnFloatingText('player', val, 'recover_ap'); }
+								document.getElementById('player').style.filter = 'brightness(1.5) drop-shadow(0 0 20px #00bfff)'; setTimeout(() => document.getElementById('player').style.filter = '', 500);
+								updatePlayerStatusUI();
+							} else {
+								const enemy = battleRuntime.field[targetIdx];
+								if (eff.type === 'heal_hp' || eff.type === 'heal_single') { enemy.hp = Math.min(parseInt(editorData.enemy[enemy.name].hp), enemy.hp + val); spawnFloatingText(targetIdx, val, 'heal_hp'); updateFieldState(); }
+							}
+						} 
+						else if (eff.type === 'damage_single') {
+							addLog(`☠️ [${targetName}] 因状态 [${pb.name}] 受到 ${val} 点伤害！`);
+							if (targetType === 'player') {
+								battleRuntime.playerHP = Math.max(0, battleRuntime.playerHP - val); spawnFloatingText('player', val, 'damage'); updatePlayerStatusUI();
+							} else {
+								const enemy = battleRuntime.field[targetIdx]; enemy.hp = Math.max(0, enemy.hp - val); spawnFloatingText(targetIdx, val, 'damage');
+								setEntitySprite(targetIdx, enemy.hp > 0 ? editorData.enemy[enemy.name].hitAnim : editorData.enemy[enemy.name].deathAnim, false); updateFieldState();
+							}
+						}
+					}
+				}); // end forEach effect
+			}
+		});
+	}
+
+	// 🌟 回合结算器 (敌我双方共同结算)
+	function processTurnStartBuffs() {
+		// 1. 玩家回合状态结算
+		triggerBuff('onTurnStart', 'player');
+		if (battleRuntime.playerBuffs) {
+			for (let i = battleRuntime.playerBuffs.length - 1; i >= 0; i--) {
+				let pb = battleRuntime.playerBuffs[i];
+				if (pb.duration > 0) { pb.duration -= 1; if (pb.duration === 0) { addLog(`📉 玩家身上的【${pb.name}】已消散。`); battleRuntime.playerBuffs.splice(i, 1); } }
+			}
+		}
+		// 2. 敌方全体状态结算
+		battleRuntime.field.forEach((enemy, idx) => {
+			if (enemy.hp > 0 && enemy.buffs) {
+				triggerBuff('onTurnStart', 'enemy', idx);
+				for (let i = enemy.buffs.length - 1; i >= 0; i--) {
+					let eb = enemy.buffs[i];
+					if (eb.duration > 0) { eb.duration -= 1; if (eb.duration === 0) { addLog(`📉 [${enemy.name}] 的【${eb.name}】已消散。`); enemy.buffs.splice(i, 1); } }
+				}
+			}
+		});
+	}
+	
+// 🌟 敌方回合核心逻辑 (终极多段连击 & 阵列 QTE 升级防串键版)
 	async function enemyTurn() {
 	    switchPlayerAnim('idle');
         addLog(`[回合] 敌方行动开始...`);
+		const shortPlayerName = activePlayer.split(' ')[0];
+		let turnQteTotal = 0;       // ✨ 回合QTE总数
+		let turnQteSuccessCount = 0; // ✨ 回合QTE完美数
         
         await new Promise(resolve => setTimeout(resolve, 600));
 
         for (let i = 0; i < battleRuntime.field.length; i++) {
             const currentEnemy = battleRuntime.field[i];
-            if (currentEnemy.hp <= 0) continue; // 死人不能动
+            if (currentEnemy.hp <= 0) continue; 
 
             const eName = currentEnemy.name;
             const eData = editorData.enemy[eName];
@@ -3985,28 +4309,19 @@ function enterTestMode() {
                 });
             }
 
-            devLog(`[AI决策] ${eName} 开始判定，动作池总权重: ${totalWeight}`, 'sys');
-
             let roll = Math.random() * totalWeight;
             let selectedAction = actions[0];
             let currentSum = 0;
             for (let a of actions) {
                 currentSum += a.weight;
-                if (roll <= currentSum) {
-                    selectedAction = a;
-                    break;
-                }
+                if (roll <= currentSum) { selectedAction = a; break; }
             }
-            
-            devLog(`[AI决策] 随机数 Roll点: ${roll.toFixed(2)} -> 决定使用: [${selectedAction.name}]`, 'sys');
 			
-            const shortPlayerName = activePlayer.split(' ')[0];
             let eTargetName = shortPlayerName; 
             const eSkConf = editorData.skill[selectedAction.name];
             let isHealSkill = false;
             if (eSkConf && ['heal_hp', 'heal_single', 'recover_mp', 'recover_ap'].includes(editorData.effect[eSkConf.effectLink]?.type)) {
-                eTargetName = '自己'; 
-                isHealSkill = true; // 标记这是加血技能
+                eTargetName = '自己'; isHealSkill = true; 
             } else if (eSkConf && eSkConf.target === '敌方全体') {
                 eTargetName = '我方全体'; 
             }
@@ -4017,231 +4332,255 @@ function enterTestMode() {
             let isMelee = false;
             let dashTime = 600; 
             let vfxUrl = '';
-            let vfxDelay = 300;
-            let delay = 400; 
+            let vfxDelays = [300]; // ✨ 变成数组！
 
             if (selectedAction.type === 'normal') {
                 isMelee = eData.atkType === 'melee';
                 dashTime = (parseFloat(eData.atkReturnDelay) || 0.6) * 1000;
                 vfxUrl = eData.atkHitEffect;
-                vfxDelay = (parseFloat(eData.atkHitDelay) || 0.3) * 1000;
+                // ✨ 核心升级：特效时间也支持分号切割了！
+                vfxDelays = String(eData.atkHitDelay || '0.3').split(';').filter(n=>n.trim()!=='').map(n => parseFloat(n) * 1000); 
             } else {
                 if (eSkConf) {
                     isMelee = eSkConf.skillType === 'melee';
                     dashTime = (parseFloat(eSkConf.returnDelay) || 0.6) * 1000;
                     vfxUrl = eSkConf.hitEffect;
-                    vfxDelay = (parseFloat(eSkConf.hitDelay) || 0.3) * 1000;
-                    delay = (parseFloat(eSkConf.damageDelay) || 0) * 1000; 
+                    // ✨ 同上
+                    vfxDelays = String(eSkConf.hitDelay || '0.3').split(';').filter(n=>n.trim()!=='').map(n => parseFloat(n) * 1000);
                 }
             }
 
-            // ✨ 严谨的镜头路由：如果是普攻读取普攻配置，如果是技能读取技能配置
-            let finalCamName = '默认攻击特写';
-            if (selectedAction.type === 'normal') {
-                finalCamName = eData.normalAttackCam || '默认攻击特写';
-            } else {
-                finalCamName = selectedAction.camera || '默认攻击特写';
-            }
-            let camDuration = 0;
-            if (editorData.camera[finalCamName]) {
-                camDuration = parseCameraString(editorData.camera[finalCamName]).duration;
-            }
+            let finalCamName = selectedAction.type === 'normal' ? (eData.normalAttackCam || '默认攻击特写') : (selectedAction.camera || '默认攻击特写');
+            let camDuration = editorData.camera[finalCamName] ? parseCameraString(editorData.camera[finalCamName]).duration : 0;
             
-			if (isMelee && !isHealSkill) {
-				const eEl = document.getElementById(`test-enemy-${i}`);
-				eEl.style.zIndex = 40; 
-				eEl.animate([
-					{ transform: 'translate(0, 0) scale(1)' },
-					{ transform: `translate(-45vw, 10vh) scale(5)`, offset: 0.15 },
-					{ transform: `translate(-45vw, 10vh) scale(5)`, offset: 0.85 },
-					{ transform: 'translate(0, 0) scale(1)' }
-				], { duration: dashTime, easing: 'ease-in-out' }).onfinish = () => eEl.style.zIndex = '';
-			}
+            if (isMelee && !isHealSkill) {
+                const eEl = document.getElementById(`test-enemy-${i}`);
+                eEl.style.zIndex = 40; 
+                eEl.animate([
+                    { transform: 'translate(0, 0) scale(1)' },
+                    { transform: `translate(-45vw, 10vh) scale(5)`, offset: 0.15 },
+                    { transform: `translate(-45vw, 10vh) scale(5)`, offset: 0.85 },
+                    { transform: 'translate(0, 0) scale(1)' }
+                ], { duration: dashTime, easing: 'ease-in-out' }).onfinish = () => eEl.style.zIndex = '';
+            }
 
-			if (vfxUrl) {
-				setTimeout(() => spawnHitEffect(null, vfxUrl, true), vfxDelay);
-			}
+            // ✨ 核心升级：遍历时间轴，连续生成多个受击特效！
+            if (vfxUrl) {
+                vfxDelays.forEach(t => setTimeout(() => spawnHitEffect(null, vfxUrl, true), t));
+            }
 
 			let sfxToPlay = (selectedAction.type === 'normal') ? eData.normalAttackSfx : (editorData.skill[selectedAction.name]?.sfx);
             playSFX(sfxToPlay);
             playCameraAnim(finalCamName);
             toggleSpotlight(true, i);
             
-            if (selectedAction.anim) {
-                devLog(`[动画触发] 敌人播放专属动作动画: ${selectedAction.anim}`, 'anim');
-                setEntitySprite(i, selectedAction.anim, false); // ✨ 敌人攻击定格
-            } else if (selectedAction.type === 'normal') {
-                setEntitySprite(i, eData.attackAnim, false); // ✨ 敌人攻击定格
-            }
+            if (selectedAction.anim) setEntitySprite(i, selectedAction.anim, false); 
+            else if (selectedAction.type === 'normal') setEntitySprite(i, eData.attackAnim, false); 
 
-            // ✨✨✨ 插入 QTE 闪避系统核心解析 ✨✨✨
-            let isQteEnabled = false;
-            let qteTime = 0, qteTol = 0;
+            // ✨✨✨ 终极多段连击 & 阵列 QTE 解析引擎 ✨✨✨
+            
+            // 1. ✨ 核心修复：读取敌人普攻配置的 atkDamageDelay (已加入空值过滤)
+            let hitTimings = [];
             if (selectedAction.type === 'normal') {
-                isQteEnabled = eData.atkQteEnable;
-                if (isQteEnabled && eData.atkQteVal) {
-                    const parts = eData.atkQteVal.split('/');
-                    qteTime = parseFloat(parts[0]) * 1000;
-                    qteTol = parseFloat(parts[1]) * 1000;
-                }
+                hitTimings = String(eData.atkDamageDelay || '0.3').split(';').filter(n => n.trim() !== '').map(n => parseFloat(n) * 1000);
             } else {
-                const skObj = eData.skills_with_weights?.find(s => s.name === selectedAction.name);
-                if (skObj && skObj.qteEnable) {
-                    isQteEnabled = true;
-                    if (skObj.qteVal) {
-                        const parts = skObj.qteVal.split('/');
-                        qteTime = parseFloat(parts[0]) * 1000;
-                        qteTol = parseFloat(parts[1]) * 1000;
-                    }
+                hitTimings = String(eSkConf?.damageDelay || '0').split(';').filter(n => n.trim() !== '').map(n => parseFloat(n) * 1000);
+            }
+
+            // 2. 解析多段伤害值 (这里保持不变，它会自动根据上面过滤后的长度来计算)
+            let baseDamages = [];
+            if (selectedAction.type === 'normal') {
+                const atkParts = String(eData.atk || '50').split('/');
+                baseDamages = hitTimings.map((_, idx) => parseInt(atkParts[idx] || atkParts[0] || 50));
+            } else {
+                const effLink = eSkConf && eSkConf.effectLink ? editorData.effect[eSkConf.effectLink] : null;
+                const valParts = String(effLink ? effLink.value : '0').split('/');
+                baseDamages = hitTimings.map((_, idx) => parseInt(valParts[idx] || valParts[0] || 0));
+            }
+
+            // 3. 解析 QTE 阵列 (这里也必须加上过滤，防止 QTE 配置多打分号报错)
+            let qteList = [];
+            let isQteEnabled = (selectedAction.type === 'normal') ? eData.atkQteEnable : (eData.skills_with_weights?.find(s => s.name === selectedAction.name)?.qteEnable);
+            
+            if (isQteEnabled) {
+                let qteStr = (selectedAction.type === 'normal') ? eData.atkQteVal : (eData.skills_with_weights?.find(s => s.name === selectedAction.name)?.qteVal);
+                if (qteStr) {
+                    qteList = qteStr.split(';').filter(q => q.trim() !== '').map(q => {
+                        const parts = q.split('/');
+                        return { time: parseFloat(parts[0]) * 1000, tol: parseFloat(parts[1]) * 1000 };
+                    });
                 }
             }
 
-            // ✨✨✨ 声明 QTE 状态变量 (致命修复点：统一在这里声明！) ✨✨✨
-            let qteSuccess = false;
-            let qteHandled = !isQteEnabled; 
-            let qteListener = null;
+            const startTime = Date.now();
+            let totalDmgDealt = 0;
+			
+			let actionQteTotal = 0;       // ✨ 单招QTE总数
+			let actionQteSuccessCount = 0; // ✨ 单招QTE完美数
+            let hitPromises = hitTimings.map((hitTime, hitIndex) => {
+                return new Promise(resolveHit => {
+                    let qte = qteList[hitIndex]; 
+                    let dmg = baseDamages[hitIndex];
+                    let qteSuccess = false;
+                    // ✨ 核心修复：只有当存在 QTE 且时间大于 0 时，才处于未处理状态
+                    let qteHandled = !(qte && qte.time > 0); 
+                    let qteDiv = null;
+                    let qteListener = null;
 
-            if (isQteEnabled && qteTime > 0) {
-                devLog(`[QTE系统] 触发闪避判定！目标节点: ${qteTime}ms, 容差: ±${qteTol}ms`, 'sys');
-                
-                // ✨ 智能判断设备，显示对应的提示文本
-                const isMobile = window.innerWidth <= 768;
-                const hintText = isMobile ? '点击屏幕闪避!' : '准备闪避(鼠标或空格)!';
-                
-                const qteDiv = document.createElement('div');
-                qteDiv.className = 'qte-container';
-                qteDiv.innerHTML = `<div class="qte-inner" style="transition: transform ${qteTime}ms linear; transform: scale(0.1);"></div><div class="qte-hint">${hintText}</div>`;
-                document.getElementById('game-scene').appendChild(qteDiv);
-                
-                void qteDiv.offsetWidth; 
-                qteDiv.querySelector('.qte-inner').style.transform = 'scale(1)'; 
-                
-                const startTime = Date.now();
-                
-                // ✨ 重构监听器：同时支持 键盘空格 / 鼠标左键 / 手机触摸
-                qteListener = (e) => {
-                    const isSpace = e.type === 'keydown' && e.code === 'Space';
-                    const isTouchOrClick = e.type === 'touchstart' || e.type === 'mousedown';
-                    
-                    if ((isSpace || isTouchOrClick) && !qteHandled) {
-                        if (e.type === 'touchstart') e.preventDefault(); // 防止手机端连按引发网页放大
-
-                        qteHandled = true;
-                        const elapsed = Date.now() - startTime;
+                    if (qte && qte.time > 0) {
+					    actionQteTotal++; 
+						turnQteTotal++;
+                        const isMobile = window.innerWidth <= 768;
+                        const hintText = isMobile ? `第${hitIndex+1}击: 闪避!` : `第${hitIndex+1}击: 空格闪避!`;
                         
-                        if (Math.abs(elapsed - qteTime) <= qteTol) {
-                            qteSuccess = true;
-                            playSFX(editorData.uiSfx?.qteSuccess);
-                            qteDiv.style.borderColor = '#00ff00';
-                            qteDiv.querySelector('.qte-inner').style.borderColor = '#00ff00';
-                            qteDiv.querySelector('.qte-hint').innerText = '完美闪避!';
-                            qteDiv.querySelector('.qte-hint').style.color = '#00ff00';
-                            spawnFloatingText('player', '完美闪避', 'heal_hp'); 
-                        } else {
+                        qteDiv = document.createElement('div');
+                        qteDiv.className = 'qte-container';
+                        // --- 🌟 终极 UI 优化：音游式横向阵列展开 ---
+                // 设定每个光圈之间的基础间距为 140 像素
+                const spacing = 140; 
+                // 计算这套连击排开后的总宽度
+                const totalWidth = (hitTimings.length - 1) * spacing;
+                // 计算当前这第 N 击的水平基础坐标 (确保整体完美居中)
+                const baseX = -(totalWidth / 2) + (hitIndex * spacing); 
+                
+                // 水平排开，并加上极小幅度的随机抖动，避免显得太死板
+                qteDiv.style.marginLeft = `${baseX + (Math.random() - 0.5) * 20}px`;
+                // 纵向依然保留一点随机错落感，防止底部的文字互相遮挡
+                qteDiv.style.marginTop = `${(Math.random() - 0.5) * 80}px`;
+                        qteDiv.innerHTML = `<div class="qte-inner" style="transition: transform ${qte.time}ms linear; transform: scale(0.1);"></div><div class="qte-hint" style="font-size:14px; bottom:-25px;">${hintText}</div>`;
+                        document.getElementById('game-scene').appendChild(qteDiv);
+                        
+                        void qteDiv.offsetWidth; 
+                        qteDiv.querySelector('.qte-inner').style.transform = 'scale(1)'; 
+                        
+                        qteListener = (e) => {
+                            // ✨✨✨ 终极防串键：如果这个按键事件已经被前面的 QTE “吃掉”了，直接忽略！
+                            if (e.qteConsumed) return; 
+
+                            const isTrigger = (e.type === 'keydown' && e.code === 'Space') || e.type === 'touchstart' || e.type === 'mousedown';
+                            if (isTrigger && !qteHandled) {
+                                const elapsed = Date.now() - startTime;
+                                
+                                if (Math.abs(elapsed - qte.time) <= 0.4 * 1000) {
+                                    if (e.type === 'touchstart') e.preventDefault();
+                                    
+                                    e.qteConsumed = true; // ✨ 标记：我吃掉这个按键了，其他 QTE 退散！
+                                    qteHandled = true;
+                                    
+                                    if (Math.abs(elapsed - qte.time) <= qte.tol) {
+                                        qteSuccess = true;
+										actionQteSuccessCount++; // 招式成功+1
+										turnQteSuccessCount++;   // 回合成功+1
+										triggerBuff('onQteSuccess_Hit', 'player'); // ✨ 触发 1 级被动 (每次)
+                                        playSFX(editorData.uiSfx?.qteSuccess);
+                                        qteDiv.style.borderColor = '#00ff00';
+                                        qteDiv.querySelector('.qte-inner').style.borderColor = '#00ff00';
+                                        qteDiv.querySelector('.qte-hint').innerText = '完美!';
+                                        qteDiv.querySelector('.qte-hint').style.color = '#00ff00';
+                                        spawnFloatingText('player', '闪避', 'heal_hp'); 
+										triggerBuff('onQteSuccess');
+                                    } else {
+                                        playSFX(editorData.uiSfx?.qteFail);
+                                        qteDiv.style.borderColor = '#ff0000';
+                                        qteDiv.querySelector('.qte-hint').innerText = '失误!';
+                                        qteDiv.querySelector('.qte-hint').style.color = '#ff0000';
+                                    }
+                                    setTimeout(() => qteDiv.remove(), 400);
+                                    document.removeEventListener('keydown', qteListener);
+                                    document.removeEventListener('touchstart', qteListener);
+                                    document.removeEventListener('mousedown', qteListener);
+                                }
+                            }
+                        };
+                        document.addEventListener('keydown', qteListener);
+                        document.addEventListener('touchstart', qteListener, { passive: false });
+                        document.addEventListener('mousedown', qteListener);
+                    }
+
+                    setTimeout(() => {
+                        // ✨ 核心修复：增加了 qteDiv !== null 的判断，防止报错！
+                        if (qteDiv && qte && !qteHandled) {
+                            qteHandled = true;
                             playSFX(editorData.uiSfx?.qteFail);
                             qteDiv.style.borderColor = '#ff0000';
-                            qteDiv.querySelector('.qte-hint').innerText = '太快/太慢!';
+                            qteDiv.querySelector('.qte-hint').innerText = 'Miss!';
                             qteDiv.querySelector('.qte-hint').style.color = '#ff0000';
+                            setTimeout(() => qteDiv.remove(), 400);
+                            document.removeEventListener('keydown', qteListener);
+                            document.removeEventListener('touchstart', qteListener);
+                            document.removeEventListener('mousedown', qteListener);
                         }
-                        setTimeout(() => qteDiv.remove(), 600);
-                        
-                        // ✨ 卸载所有类型的监听器
-                        document.removeEventListener('keydown', qteListener);
-                        document.removeEventListener('touchstart', qteListener);
-                        document.removeEventListener('mousedown', qteListener);
-                    }
-                };
-                
-                // ✨ 挂载所有类型的监听器到整个网页文档上
-                document.addEventListener('keydown', qteListener);
-                document.addEventListener('touchstart', qteListener, { passive: false });
-                document.addEventListener('mousedown', qteListener);
-                
-                setTimeout(() => {
-                    if (!qteHandled) {
-                        qteHandled = true;
-                        playSFX(editorData.uiSfx?.qteFail);
-                        qteDiv.style.borderColor = '#ff0000';
-                        qteDiv.querySelector('.qte-hint').innerText = 'Miss!';
-                        qteDiv.querySelector('.qte-hint').style.color = '#ff0000';
-                        setTimeout(() => qteDiv.remove(), 600);
-                        
-                        // ✨ 卸载所有监听器
-                        document.removeEventListener('keydown', qteListener);
-                        document.removeEventListener('touchstart', qteListener);
-                        document.removeEventListener('mousedown', qteListener);
-                    }
-                }, qteTime + qteTol + 50);
-            }
 
-            const finalDelay = isQteEnabled ? Math.max(delay, qteTime + qteTol + 60) : delay;
-            await new Promise(resolve => setTimeout(resolve, finalDelay));
-
-           // ⚔️ 判定点到达：结算伤害
-            let dmg = 0;
-            let isHealing = false; 
-
-            if (qteSuccess) {
-                addLog(`💨 千钧一发！完美闪避了 [${eName}] 的攻击！`);
-                isHealing = true; // 跳过扣血
-				const pStats = editorData.character[activePlayer];
-                if (pStats.dodgeAnim) {
-                    setEntitySprite('player', pStats.dodgeAnim, false); // false代表不循环
-                }
-            } 
+                        if (isHealSkill) {
+                            currentEnemy.hp = Math.min(parseInt(eData.hp), currentEnemy.hp + dmg);
+                            spawnFloatingText(i, dmg, 'heal_hp'); 
+                            if (hitIndex === 0) addLog(`💚 ${eName} 恢复了 HP！`); 
+                        } else {
+                            if (qteSuccess) {
+                                addLog(`💨 [${shortPlayerName}]闪避了 [${eName}] 的第 ${hitIndex+1} 段攻击！`);
+                                const pStats = editorData.character[activePlayer];
+                                if (pStats.dodgeAnim) setEntitySprite('player', pStats.dodgeAnim, false);
+                            } else {
+                                battleRuntime.playerHP -= dmg;
+								triggerBuff('onHit', 'player'); // ✨ 触发玩家受击被动！
+                                totalDmgDealt += dmg;
+                                if (battleRuntime.playerHP < 0) battleRuntime.playerHP = 0;
+                                document.getElementById('player-hp-val').innerText = battleRuntime.playerHP;
+                                document.getElementById('player').style.backgroundColor = 'rgba(255,0,0,0.3)';
+                                setTimeout(() => document.getElementById('player').style.backgroundColor = '', 150);
+                                updatePlayerStatusUI();
+                                spawnFloatingText('player', dmg, 'damage'); 
+                                
+                                const pStats = editorData.character[activePlayer];
+                                setEntitySprite('player', battleRuntime.playerHP > 0 ? pStats.hitAnim : '', false);
+                            }
+                        }
+                        resolveHit();
+                    }, hitTime);
+                });
+            });
+            await Promise.all(hitPromises);
 			
-            else if (selectedAction.type === 'normal') {
-                dmg = parseInt(eData.atk || 50);
-                addLog(`🏹 ${eName} 发动了 [普通攻击]，对我方造成 ${dmg} 伤害！`);
-                devLog(`[战斗结算] ${eName} 普攻计算，基础ATK: ${dmg}`, 'combat'); 
-            } else {
-                const skEffect = editorData.skill[selectedAction.name];
-                if (!skEffect || !skEffect.effectLink) {
-                    devLog(`[配置缺失] 敌人 ${eName} 未绑定有效 Effect！`, 'warn');
-                }
-                const effLink = skEffect && skEffect.effectLink ? editorData.effect[skEffect.effectLink] : null;
-                const val = effLink ? parseInt(effLink.value) : 0;
+            // ✨ 敌方绝技：在所有伤害判定结束后，如果敌方技能带有 Buff，则进行附加
+            if (eSkConf && eSkConf.applyBuff) {
+                const buffDur = parseInt(eSkConf.buffDuration);
+                const finalDur = isNaN(buffDur) ? 3 : buffDur;
+                const bTargetType = eSkConf.buffTarget || 'target';
                 
-                if (effLink && ['heal_hp', 'recover_mp', 'recover_ap', 'heal_single'].includes(effLink.type)) {
-                    isHealing = true; 
-                    const maxHp = parseInt(eData.hp);
-                    currentEnemy.hp = Math.min(maxHp, currentEnemy.hp + val);
-                    addLog(`💚 ${eName} 释放了 [${selectedAction.name}]，恢复了 ${val} 点 HP！`);
-                    
-                    const eEl = document.getElementById(`test-enemy-${i}`);
-                    eEl.style.filter = 'brightness(1.5) drop-shadow(0 0 20px #00ff00)';
-                    setTimeout(() => eEl.style.filter = '', 500);
-                    updateFieldState(); 
-                    toggleSpotlight(true, i); 
-                    
-                    spawnFloatingText(i, val, 'heal_hp'); 
+                if (bTargetType === 'self') {
+                    // 敌人释放且目标是自己 (例如：嗜血狂暴、护盾强化)，自身 Buff 必定成功
+                    addBuff('enemy', i, eSkConf.applyBuff, finalDur);
                 } else {
-                    dmg = val;
-                    addLog(`🔥 ${eName} 释放了 [${selectedAction.name}]，造成 ${dmg} 伤害！`);
-                    devLog(`[战斗结算] 理论伤害: ${dmg}`, 'combat');
+                    // ✨ 问题 2 修复：目标是玩家时，判断玩家是否完美闪避了整套攻击！
+                    // 只有当技能开启了 QTE，且玩家成功闪避的次数等于 QTE 总数时，才算 fullyDodged (完全闪避)
+                    let fullyDodged = (actionQteTotal > 0 && actionQteSuccessCount === actionQteTotal);
+                    
+                    if (!fullyDodged) {
+                        // 没有完全闪避（比如漏掉了一击，或者技能根本没 QTE），则正常中招
+                        addBuff('player', null, eSkConf.applyBuff, finalDur);
+						addLog(`🛡️ [${shortPlayerName}]获得了 ${eName} 造成的异常状态【${eSkConf.applyBuff}】！`);
+                    } else {
+                        addLog(`🛡️ [${shortPlayerName}]完美闪避！ ${eName} 没能造成【${eSkConf.applyBuff}】！`);
+                    }
                 }
-            }
-
-            if (!isHealing) {
-                battleRuntime.playerHP -= dmg;
-                if (battleRuntime.playerHP < 0) battleRuntime.playerHP = 0;
-                document.getElementById('player-hp-val').innerText = battleRuntime.playerHP;
-                document.getElementById('player').style.backgroundColor = 'rgba(255,0,0,0.3)';
-                setTimeout(() => document.getElementById('player').style.backgroundColor = '', 200);
                 updatePlayerStatusUI();
-                
-                spawnFloatingText('player', dmg, 'damage'); 
-                
-                // ✨ 玩家受击定格
-                const pStats = editorData.character[activePlayer];
-                setEntitySprite('player', battleRuntime.playerHP > 0 ? pStats.hitAnim : '', false);
+                updateFieldState();
             }
 
-            const remainingWaitTime = Math.max(800, camDuration - delay + 200);
+			if (actionQteTotal > 0 && actionQteSuccessCount === actionQteTotal) {
+				addLog(`🌟 [${shortPlayerName}]完美化解了 [${eName}] 的整套猛攻！`);
+				triggerBuff('onQteSuccess_Action', 'player'); // 触发 2 级被动 (整组)
+			}
+
+            if (!isHealSkill && totalDmgDealt > 0) {
+                addLog(`🩸 ${eName} 对 [${shortPlayerName}] 的攻击结束，共造成 ${totalDmgDealt} 点伤害！`);
+            }
+
+            const maxHitTime = hitTimings.length > 0 ? Math.max(...hitTimings) : 0;
+            const remainingWaitTime = Math.max(800, camDuration - maxHitTime + 200);
             await new Promise(resolve => setTimeout(resolve, remainingWaitTime));
             
             toggleSpotlight(false); 
-            // ✨ 敌人结束动作，恢复待机
             setEntitySprite(i, getEnemyIdleUrl(currentEnemy), true); 
 			
 			if (battleRuntime.playerHP > 0) {
@@ -4251,10 +4590,7 @@ function enterTestMode() {
 
            if (battleRuntime.playerHP <= 0) {
                 addLog(`💀 我方已战败... 幻境的回响就此消逝。`);
-                setTimeout(() => { 
-                    sendBattleResult('lose'); 
-                    exitTestMode(); 
-                }, 1000);
+                setTimeout(() => { sendBattleResult('lose'); exitTestMode(); }, 1000);
                 return;
             }
 
@@ -4267,23 +4603,23 @@ function enterTestMode() {
                 await new Promise(resolve => setTimeout(resolve, 500)); 
             }
         }
+		
+		// ✨ 结算整个“敌方回合”的究极 QTE
+		if (turnQteTotal > 0 && turnQteSuccessCount === turnQteTotal) {
+			addLog(`👑 完美.本回合没有任何敌人触及[${shortPlayerName}].`);
+			triggerBuff('onQteSuccess_Turn', 'player'); // 触发 3 级被动 (全回合)
+		}
 
         fillEnemyField(true);
         renderFieldUI(); 
-
         battleRuntime.playerAP = battleRuntime.playerMaxAP;
         updatePlayerStatusUI();
 
         addLog(`[回合] 我方行动阶段，AP 已回满！`);
+		processTurnStartBuffs();
         let waitPromise = null;
-        if (editorData.uiSfx && editorData.uiSfx.turnStartAnim) {
-            waitPromise = playFullscreenCG(editorData.uiSfx.turnStartAnim);
-        }
-        
-        // ✨ 镜头同步拉回玩家！
+        if (editorData.uiSfx && editorData.uiSfx.turnStartAnim) waitPromise = playFullscreenCG(editorData.uiSfx.turnStartAnim);
         setBaseCamera('玩家机位');
-        
-        // ✨ 拦住菜单，不让它立刻弹出来
         if (waitPromise && engineSettings.turnWaitMode === 'all') await waitPromise;
         
         battleState = 'MENU';  
@@ -4399,8 +4735,24 @@ function enterTestMode() {
 	}
 	executeAction(pendingAction, idx);
 }
-
-	// 正式执行结算 (融合了普攻、技能、多效果道具、霸气处刑 与 长效动画保持)
+     
+	// ✨ 辅助函数：实时重构并刷新道具背包
+    function rebuildBattleMenuItems() {
+        const shortName = activePlayer.split(' ')[0];
+        menus.items = [];
+        Object.keys(battleRuntime.inventory).forEach((itemName, index) => {
+            const count = battleRuntime.inventory[itemName];
+            if (count > 0) {
+                const itData = editorData.item[itemName];
+                menus.items.push({
+                    id: 'item_' + index, text: itemName, type: 'action', isItem: true, 
+                    desc: { level: '道具', cost: `剩余 ${count} 个`, effect: itData.effects ? itData.effects.join(' + ') : '', detail: itData.desc, user: shortName }
+                });
+            }
+        });
+        if (menus.items.length === 0) menus.items.push({ id: 'none', text: '背包空空', type: 'action', desc: { level:'-', cost:'-', effect:'无', detail:'你没有携带任何道具。', user: '' } });
+    }
+	
     // 正式执行结算 (融合了普攻、技能、多效果道具、霸气处刑 与 长效动画保持)
     async function executeAction(actionItem, targetIdx) { 
         if (battleState === 'ANIMATING') return; 
@@ -4413,11 +4765,15 @@ function enterTestMode() {
         const isItem = actionItem.isItem;
         const pStats = editorData.character[activePlayer];
         
-        let costMP = 0; let costAP = 1; let delay = 300;
+        let costMP = 0; let costAP = 1; 
+        // ✨ 新生代数组，替代了旧的 delay
+        let hitTimings = [300]; 
         let effectsToProcess = []; 
         let skillConfig = null; let itemConfig = null;
         let customCam = null; let cgUrl = null; let sfxToPlay = null;
-        let vfxUrl = ''; let vfxDelay = 300; let isMelee = false; let dashTime = 600;
+        // ✨ 新生代数组，替代了旧的 vfxDelay
+        let vfxUrl = ''; let vfxDelays = [300]; 
+        let isMelee = false; let dashTime = 600;
         let actionName = actionItem.text;
         let uiTextTemplate = '[使用者] 行动了！';
 
@@ -4432,9 +4788,9 @@ function enterTestMode() {
             costAP = 1; 
             uiTextTemplate = '[使用者] 对 [目标] 发起了终极处刑！';
             cgUrl = eData.executeCG;
-			sfxToPlay = eData.executeSfx || '';
+            sfxToPlay = eData.executeSfx || '';
             customCam = '默认攻击特写';
-            delay = 600;
+            hitTimings = [600]; // 处刑固定一击必杀
         } 
         // 💊 分支 2：如果是【道具】
         else if (isItem) {
@@ -4444,6 +4800,7 @@ function enterTestMode() {
             uiTextTemplate = itemConfig.castText;
             sfxToPlay = itemConfig.sfx;
             customCam = itemConfig.camera;
+			vfxUrl = itemConfig.anim || ''; // ✨ 播放特效
             itemConfig.effects.forEach(eff => { if (editorData.effect[eff]) effectsToProcess.push(editorData.effect[eff]); });
         }
         // 🔮 分支 3：如果是【技能】
@@ -4451,7 +4808,11 @@ function enterTestMode() {
             skillConfig = editorData.skill[actionName]; 
             costMP = parseInt((skillConfig.cost || "0").replace(/[^0-9]/g, '')) || 0; 
             costAP = parseInt(skillConfig.apCost) || 1;
-            delay = (parseFloat(skillConfig.damageDelay) || 0) * 1000; 
+            
+            // ✨ 核心升级：解析玩家技能的多段伤害和多段特效！(例如 0.3;0.6;0.9)
+            hitTimings = String(skillConfig.damageDelay || '0').split(';').filter(n=>n.trim()!=='').map(n=>parseFloat(n)*1000);
+            vfxDelays = String(skillConfig.hitDelay || '0.3').split(';').filter(n=>n.trim()!=='').map(n=>parseFloat(n)*1000);
+            
             uiTextTemplate = skillConfig.castText;
             sfxToPlay = skillConfig.sfx;
             
@@ -4461,7 +4822,6 @@ function enterTestMode() {
             isMelee = skillConfig.skillType === 'melee';
             dashTime = (parseFloat(skillConfig.returnDelay) || 0.6) * 1000;
             vfxUrl = skillConfig.hitEffect;
-            vfxDelay = (parseFloat(skillConfig.hitDelay) || 0.3) * 1000;
             
             if (skillConfig.effectLink && editorData.effect[skillConfig.effectLink]) effectsToProcess.push(editorData.effect[skillConfig.effectLink]);
         } 
@@ -4470,11 +4830,12 @@ function enterTestMode() {
             actionName = "普通攻击";
             uiTextTemplate = pStats.atkCastText || '[使用者] 对 [目标] 发动了攻击！';
             sfxToPlay = pStats.normalAttackSfx;
-			customCam = pStats.normalAttackCam;
+            customCam = pStats.normalAttackCam;
             isMelee = pStats.atkType === 'melee';
-			dashTime = (parseFloat(pStats.atkReturnDelay) || 0.6) * 1000;
-			vfxUrl = pStats.atkHitEffect;
-			vfxDelay = (parseFloat(pStats.atkHitDelay) || 0.3) * 1000;
+            dashTime = (parseFloat(pStats.atkReturnDelay) || 0.6) * 1000;
+            vfxUrl = pStats.atkHitEffect;
+            // 普攻特效也支持多段
+            vfxDelays = String(pStats.atkHitDelay || '0.3').split(';').filter(n=>n.trim()!=='').map(n=>parseFloat(n)*1000);
         }
 
         if (battleRuntime.playerMP < costMP || battleRuntime.playerAP < costAP) {
@@ -4482,7 +4843,10 @@ function enterTestMode() {
             setTimeout(() => renderMenu('main'), 500); return;
         }
         battleRuntime.playerMP -= costMP; battleRuntime.playerAP -= costAP;
-        if (isItem) battleRuntime.inventory[actionName]--; 
+        if (isItem) {
+            battleRuntime.inventory[actionName]--;
+            rebuildBattleMenuItems(); // ✨ 实时刷新背包UI！数量归零会自动清除该选项
+        } 
         updatePlayerStatusUI();
         
         battleState = 'ANIMATING';
@@ -4504,7 +4868,11 @@ function enterTestMode() {
 			document.querySelectorAll('.test-enemy').forEach(eEl => { eEl.animate([ { transform: 'translate(0, 0) scale(1)' }, { transform: `translate(-40vw, 5vh) scale(3.0)`, offset: 0.15 }, { transform: `translate(-40vw, 5vh) scale(3.0)`, offset: 0.85 }, { transform: 'translate(0, 0) scale(1)' } ], { duration: dashTime, easing: 'ease-in-out' }); });
 		}
 
-        if (vfxUrl) setTimeout(() => spawnHitEffect(targetIdx === 'player' ? null : targetIdx, vfxUrl, targetIdx === 'player'), vfxDelay);
+        // ✨ 多段受击特效触发器
+        if (vfxUrl) {
+            vfxDelays.forEach(t => setTimeout(() => spawnHitEffect(targetIdx === 'player' ? null : targetIdx, vfxUrl, targetIdx === 'player'), t));
+        }
+
         playSFX(sfxToPlay);
         
         const finalCamName = customCam || '默认攻击特写';
@@ -4512,71 +4880,140 @@ function enterTestMode() {
         playCameraAnim(finalCamName);
         toggleSpotlight(true, targetIdx);
 
+        // ✨ 算出整套动作总共需要多久
+        const maxHitTime = hitTimings.length > 0 ? Math.max(...hitTimings) : 0;
+
+        // ✨ 循环遍历时间轴，发射每一段伤害！
+        hitTimings.forEach((hitTime, hitIndex) => {
+            setTimeout(() => {
+                if (isExecute) {
+                    if (hitIndex === 0) { // 处刑只杀一次
+                        const eData = editorData.enemy[targetName];
+                        const target = battleRuntime.field[targetIdx];
+                        setEntitySprite(targetIdx, eData.executeAnim || eData.hitAnim || eData.deathAnim, false);
+                        addLog(`🩸 [${target.name}] 被[${shortName}]处刑了.`);
+                        spawnFloatingText(targetIdx, "被处刑", 'damage');
+                        target.hp = 0; 
+                        
+                        if (eData.executeRewardHP) { battleRuntime.playerHP = Math.min(parseInt(pStats.hp), battleRuntime.playerHP + eData.executeRewardHP); spawnFloatingText('player', eData.executeRewardHP, 'heal_hp'); }
+                        if (eData.executeRewardMP) { battleRuntime.playerMP = Math.min(parseInt(pStats.mp), battleRuntime.playerMP + eData.executeRewardMP); spawnFloatingText('player', eData.executeRewardMP, 'recover_mp'); }
+                        if (eData.executeRewardAP) { battleRuntime.playerAP = Math.min(parseInt(pStats.ap), battleRuntime.playerAP + eData.executeRewardAP); spawnFloatingText('player', eData.executeRewardAP, 'recover_ap'); }
+                        
+                        const el = document.getElementById(`test-enemy-${targetIdx}`);
+                        if(el) { el.style.transform = 'translateX(20px) scale(0.8)'; el.style.filter = 'brightness(0) drop-shadow(0 0 20px red)'; }
+                    }
+                } 
+                else if (isNormalAttack && targetIdx !== null && targetIdx !== 'player') {
+                    // 普攻多段伤害解析 (例如：20/30)
+                    let atkParts = String(pStats.atk || '50').split('/');
+                    let dmg = parseInt(atkParts[hitIndex] || atkParts[0] || 50); 
+                    
+                    const target = battleRuntime.field[targetIdx];
+                    target.hp = Math.max(0, target.hp - dmg);
+                    spawnFloatingText(targetIdx, dmg, 'damage');
+                    
+                    const eData = editorData.enemy[target.name];
+                    setEntitySprite(targetIdx, target.hp > 0 ? eData.hitAnim : eData.deathAnim, false);
+                    
+                    if (target.hp === 0 && hitIndex === hitTimings.length - 1) addLog(`💀 [${target.name}] 死亡！`);
+                    else addLog(`⚔[${shortName}]对 ${target.name} 造成 ${dmg} 伤害！`);
+                } 
+                else if (effectsToProcess.length > 0) {
+                    effectsToProcess.forEach(eff => {
+                        // 技能多段伤害解析
+                        const valParts = String(eff.value).split('/');
+                        const val = parseInt(valParts[hitIndex] || valParts[0] || 0);
+
+                        if (['heal_hp', 'recover_mp', 'recover_ap', 'heal_single'].includes(eff.type)) {
+                            let typeText = eff.type.includes('hp') ? 'HP' : (eff.type.includes('mp') ? 'MP' : 'AP');
+                            if(hitIndex === 0) addLog(`💚 [${shortName}] 恢复了 ${val} 点 ${typeText}！`);
+                            if (eff.type === 'heal_hp' || eff.type === 'heal_single') { battleRuntime.playerHP = Math.min(parseInt(pStats.hp), battleRuntime.playerHP + val); spawnFloatingText('player', val, 'heal_hp'); }
+                            if (eff.type === 'recover_mp') { battleRuntime.playerMP = Math.min(parseInt(pStats.mp), battleRuntime.playerMP + val); spawnFloatingText('player', val, 'recover_mp'); }
+                            if (eff.type === 'recover_ap') { battleRuntime.playerAP = Math.min(parseInt(pStats.ap||3), battleRuntime.playerAP + val); spawnFloatingText('player', val, 'recover_ap'); }
+                            document.getElementById('player').style.filter = 'brightness(1.5) drop-shadow(0 0 20px #00ff00)'; setTimeout(() => document.getElementById('player').style.filter = '', 500);
+                        } 
+                        else if (eff.type === 'damage_single' && targetIdx !== null && targetIdx !== 'player') {
+                            const target = battleRuntime.field[targetIdx]; target.hp = Math.max(0, target.hp - val);
+                            spawnFloatingText(targetIdx, val, 'damage');
+                            setEntitySprite(targetIdx, target.hp > 0 ? editorData.enemy[target.name].hitAnim : editorData.enemy[target.name].deathAnim, false); 
+                            
+                            if (target.hp === 0 && hitIndex === hitTimings.length - 1) addLog(`💀 [${target.name}] 被击败了！`);
+                            addLog(`💥 [${shortName}] 释放 [${actionName}]，第${hitIndex+1}段命中，造成 ${val} 点伤害！`);
+                        } 
+                        else if (eff.type === 'damage_all') {
+                            if (hitIndex === 0) addLog(`🔥 [${shortName}] 释放了群体技能 [${actionName}]！`);
+                            battleRuntime.field.forEach((e, idx) => {
+                                if (e.hp > 0) { 
+                                    e.hp = Math.max(0, e.hp - val); spawnFloatingText(idx, val, 'damage'); 
+                                    setEntitySprite(idx, e.hp > 0 ? editorData.enemy[e.name].hitAnim : editorData.enemy[e.name].deathAnim, false); 
+                                    if (e.hp === 0 && hitIndex === hitTimings.length - 1) addLog(`💀 [${e.name}] 被击败了！`); 
+                                }
+                            });
+                        }
+                    });
+                }
+
+                updatePlayerStatusUI();
+                updateFieldState(); 
+                toggleSpotlight(true, targetIdx); // 每打一段都刷新一下聚光灯
+            }, hitTime);
+        });
+
+        // ✨ 收尾工程：等待最后一段伤害也打完之后，再结算死亡、重置镜头、交接回合
         setTimeout(() => {
-            if (isExecute) {
-                const eData = editorData.enemy[targetName];
-                const target = battleRuntime.field[targetIdx];
-                
-                setEntitySprite(targetIdx, eData.executeAnim || eData.hitAnim || eData.deathAnim, false);
-                
-                addLog(`🩸 [${target.name}] 被[${shortName}]处刑了.`);
-                spawnFloatingText(targetIdx, "被处刑", 'damage');
-                target.hp = 0; 
-                
-                if (eData.executeRewardHP) { battleRuntime.playerHP = Math.min(parseInt(pStats.hp), battleRuntime.playerHP + eData.executeRewardHP); spawnFloatingText('player', eData.executeRewardHP, 'heal_hp'); }
-                if (eData.executeRewardMP) { battleRuntime.playerMP = Math.min(parseInt(pStats.mp), battleRuntime.playerMP + eData.executeRewardMP); spawnFloatingText('player', eData.executeRewardMP, 'recover_mp'); }
-                if (eData.executeRewardAP) { battleRuntime.playerAP = Math.min(parseInt(pStats.ap), battleRuntime.playerAP + eData.executeRewardAP); spawnFloatingText('player', eData.executeRewardAP, 'recover_ap'); }
-                
-                const el = document.getElementById(`test-enemy-${targetIdx}`);
-                if(el) { el.style.transform = 'translateX(20px) scale(0.8)'; el.style.filter = 'brightness(0) drop-shadow(0 0 20px red)'; }
-            } 
-            else if (isNormalAttack && targetIdx !== null && targetIdx !== 'player') {
-                let dmg = parseInt(pStats.atk || 50); 
-                const target = battleRuntime.field[targetIdx];
-                target.hp = Math.max(0, target.hp - dmg);
-                addLog(`⚔[${shortName}]对 ${target.name} 造成 ${dmg} 伤害！`);
-                spawnFloatingText(targetIdx, dmg, 'damage');
-                
-                const eData = editorData.enemy[target.name];
-                setEntitySprite(targetIdx, target.hp > 0 ? eData.hitAnim : eData.deathAnim, false);
-                if (target.hp === 0) addLog(`💀 [${target.name}] 死亡！`);
-            } 
+            
+            // ⬇️ ===== 新增的第四步代码从这里开始 ===== ⬇️
+            
+            // ✨ 让敌人受到物理伤害时也触发 onHit！
+            if (isNormalAttack && targetIdx !== null && targetIdx !== 'player') { 
+                triggerBuff('onHit', 'enemy', targetIdx); 
+            }
             else if (effectsToProcess.length > 0) {
                 effectsToProcess.forEach(eff => {
-                    const val = parseInt(eff.value);
-                    if (['heal_hp', 'recover_mp', 'recover_ap', 'heal_single'].includes(eff.type)) {
-					    let typeText = eff.type.includes('hp') ? 'HP' : (eff.type.includes('mp') ? 'MP' : 'AP');
-                        addLog(`💚 [${shortName}] 使用了 [${actionName}]，恢复了 ${val} 点 ${typeText}！`);
-                        if (eff.type === 'heal_hp' || eff.type === 'heal_single') { battleRuntime.playerHP = Math.min(parseInt(pStats.hp), battleRuntime.playerHP + val); spawnFloatingText('player', val, 'heal_hp'); }
-                        if (eff.type === 'recover_mp') { battleRuntime.playerMP = Math.min(parseInt(pStats.mp), battleRuntime.playerMP + val); spawnFloatingText('player', val, 'recover_mp'); }
-                        if (eff.type === 'recover_ap') { battleRuntime.playerAP = Math.min(parseInt(pStats.ap||3), battleRuntime.playerAP + val); spawnFloatingText('player', val, 'recover_ap'); }
-                        document.getElementById('player').style.filter = 'brightness(1.5) drop-shadow(0 0 20px #00ff00)'; setTimeout(() => document.getElementById('player').style.filter = '', 500);
-                    } 
-                    else if (eff.type === 'damage_single' && targetIdx !== null && targetIdx !== 'player') {
-                        const target = battleRuntime.field[targetIdx]; target.hp = Math.max(0, target.hp - val);
-                        spawnFloatingText(targetIdx, val, 'damage');
-                        setEntitySprite(targetIdx, target.hp > 0 ? editorData.enemy[target.name].hitAnim : editorData.enemy[target.name].deathAnim, false); 
-                        if (target.hp === 0) addLog(`💀 [${target.name}] 被击败了！`);
-						addLog(`💥 [${shortName}] 使用 [${actionName}]，攻击 [${target.name}]，造成 ${val} 点伤害！`);
-                    } 
+                    if (eff.type === 'damage_single' && targetIdx !== null && targetIdx !== 'player') {
+                        triggerBuff('onHit', 'enemy', targetIdx);
+                    }
                     else if (eff.type === 'damage_all') {
-					    addLog(`🔥 [${shortName}] 使用了技能 [${actionName}]，造成了 ${val} 点群体伤害！`);
-                        battleRuntime.field.forEach((e, idx) => {
-                            if (e.hp > 0) { 
-                                e.hp = Math.max(0, e.hp - val); spawnFloatingText(idx, val, 'damage'); 
-                                setEntitySprite(idx, e.hp > 0 ? editorData.enemy[e.name].hitAnim : editorData.enemy[e.name].deathAnim, false); 
-                                if (e.hp === 0) addLog(`💀 [${e.name}] 被击败了！`); 
-                            }
-                        });
+                        battleRuntime.field.forEach((e, idx) => { if (e.hp > 0) triggerBuff('onHit', 'enemy', idx); });
                     }
                 });
             }
 
-            updatePlayerStatusUI();
-            updateFieldState(); 
-            toggleSpotlight(true, targetIdx); 
+            // ✨ 核心功能：技能释放完毕后，正式结算附加状态 (Buff)
+            const buffToApply = (skillConfig && skillConfig.applyBuff) || (itemConfig && itemConfig.applyBuff);
+            if (buffToApply) {
+                // 读取配置的持续时间和目标方向
+                let buffDur = 3;
+                let bTargetType = 'target';
+                if (skillConfig && skillConfig.applyBuff) {
+                    buffDur = parseInt(skillConfig.buffDuration); if(isNaN(buffDur)) buffDur = 3;
+                    bTargetType = skillConfig.buffTarget || 'target';
+                } else if (itemConfig && itemConfig.applyBuff) {
+                    buffDur = parseInt(itemConfig.buffDuration); if(isNaN(buffDur)) buffDur = 3;
+                    bTargetType = itemConfig.buffTarget || 'target';
+                }
 
-            const remainingWaitTime = Math.max(800, camDuration - delay + 200);
+                if (bTargetType === 'self') {
+                    // 玩家主动行动，如果是 self，必定加给玩家
+                    addBuff('player', null, buffToApply, buffDur);
+                } else {
+                    // 加给技能设定的目标
+                    if (targetIdx === 'player') {
+                        addBuff('player', null, buffToApply, buffDur);
+                    } else if (targetIdx === null) { 
+                        // 群体攻击，给所有活着的敌人上 Buff
+                        battleRuntime.field.forEach((e, idx) => {
+                            if (e.hp > 0) addBuff('enemy', idx, buffToApply, buffDur);
+                        });
+                    } else { 
+                        // 单体攻击
+                        addBuff('enemy', targetIdx, buffToApply, buffDur);
+                    }
+                }
+                updatePlayerStatusUI();
+                updateFieldState();
+            }
+            const remainingWaitTime = Math.max(800, camDuration - maxHitTime + 200);
 
             setTimeout(async () => {
                 toggleSpotlight(false); 
@@ -4595,7 +5032,6 @@ function enterTestMode() {
                 } else if (battleRuntime.playerAP > 0 && !allFieldDead) {
                     const canContinue = isItem ? (battleRuntime.inventory[actionName] > 0) : (!isNormalAttack && skillConfig ? battleRuntime.playerMP >= (parseInt((skillConfig.cost||"0").replace(/[^0-9]/g, ''))||0) : true);
                     
-                    // ✨ 核心修复：把那个要命的 targetType 换成了 !isExecute
                     if (targetIdx !== null && targetIdx !== 'player' && !isExecute && canContinue) {
                         battleState = 'TARGET'; pendingAction = actionItem; 
                         if (currentTargetIdx !== null && battleRuntime.field[currentTargetIdx].hp <= 0) {
@@ -4607,32 +5043,25 @@ function enterTestMode() {
                         battleState = 'MENU'; pendingAction = null; setBaseCamera('玩家机位'); renderMenu('main');
                     }
                 } else {
+// ... 后面的代码保持不变 ...
                     addLog(`🛑 玩家回合结束！`);
                     let waitPromise = null;
-                    if (editorData.uiSfx && editorData.uiSfx.turnEndAnim) {
-                        waitPromise = playFullscreenCG(editorData.uiSfx.turnEndAnim);
-                    }
-                    
-                    // ✨ 镜头立刻推向敌人，配合 CG 营造压迫感！
+                    if (editorData.uiSfx && editorData.uiSfx.turnEndAnim) waitPromise = playFullscreenCG(editorData.uiSfx.turnEndAnim);
                     setBaseCamera('敌方机位'); 
-                    
-                    // ✨ 拦住敌人的 AI，让它们在镜头里“罚站”等 CG 播完
-                    if (waitPromise && (engineSettings.turnWaitMode === 'enemy' || engineSettings.turnWaitMode === 'all')) {
-                        await waitPromise;
-                    }
-                    
-                    // CG 播完，敌人开咬！
+                    if (waitPromise && (engineSettings.turnWaitMode === 'enemy' || engineSettings.turnWaitMode === 'all')) await waitPromise;
                     enemyTurn();
                 }
             }, remainingWaitTime);
-
-        }, delay); 
+        }, maxHitTime);
     }
 
 	// 键盘总控 (融合了菜单上下与选目标左右)
 	document.addEventListener('keydown', (e) => {
-	    // ✨ 新增：Tab 键唤出开发者控制台
-        if (e.key === 'Tab' && isTestModeActive) {
+	    // ✨ 修复：判定当前是不是正在预加载黑屏阶段
+        const isBooting = document.getElementById('boot-loader') && document.getElementById('boot-loader').style.display !== 'none';
+        
+        // ✨ 修复：只要在测试中，或者在加载中，都可以唤出控制台看进度！
+        if (e.key === 'Tab' && (isTestModeActive || isBooting)) {
             e.preventDefault(); // 阻止 Tab 键切换焦点的默认行为
             toggleDevConsole();
             return;
@@ -4933,7 +5362,7 @@ function enterTestMode() {
             const lvlData = editorData.level[levelName];
             if (lvlData && lvlData.startCG && editorData.resource[lvlData.startCG]) {
                 devLog(`[剧情演出] 播放关卡 [${levelName}] 的开场剧情 CG...`, 'anim');
-                await playFullscreenCG(editorData.resource[lvlData.startCG].url);
+				await playFullscreenCG(lvlData.startCG);
             }
 
 			enterTestMode();
@@ -4953,7 +5382,7 @@ function enterTestMode() {
 	window.onload = () => {
     if (window.parent && window.parent !== window) {
         // 在被主程序调用时，只显示黑屏或底图，坚决不露编辑器！
-        document.body.insertAdjacentHTML('beforeend', '<div id="iframe-wait" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#050505;z-index:9998;"></div>');
+        document.body.insertAdjacentHTML('beforeend', '<div id="iframe-wait" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#050505;z-index:3000;"></div>');
         return; 
     }
     // ✨ 独立打开时，才解除隐藏
@@ -5092,6 +5521,145 @@ const endDrag = (e) => {
     // 延迟取消拖拽标记，保护 click 事件
     setTimeout(() => hasDragged = false, 50);
 };
+
+    /* =========================================================
+   ✨ 终极角色状态面板系统 (Status Screen Engine)
+   ========================================================= */
+let isCharInfoPanelOpen = false;
+
+// 1. 开关控制器
+function toggleCharInfoPanel() {
+    if (!isTestModeActive) return;
+    isCharInfoPanelOpen = !isCharInfoPanelOpen;
+    const panel = document.getElementById('char-info-panel');
+    
+    if (isCharInfoPanelOpen) {
+        renderCharInfoPanel(); // 展开前瞬间获取最新数据
+        panel.classList.add('active');
+        if (editorData.uiSfx && editorData.uiSfx.menuOpen) playSFX(editorData.uiSfx.menuOpen); // 借用一下菜单音效
+    } else {
+        panel.classList.remove('active');
+        if (editorData.uiSfx && editorData.uiSfx.cancel) playSFX(editorData.uiSfx.cancel);
+    }
+}
+
+// 2. 动态渲染引擎 (安全版：匹配玻璃拟态 + 自带关闭按钮)
+function renderCharInfoPanel() {
+    const panel = document.getElementById('char-info-panel');
+    const charData = editorData.character[activePlayer]; // ✨ 安全读取：直接读当前选定的玩家
+    if (!charData) return; 
+    
+    const shortName = activePlayer.split(' ')[0];
+
+    // 立绘解析 (突破物理尺寸限制)
+    let portraitHtml = '';
+    if (charData.portrait && getAssetUrl(charData.portrait)) {
+        portraitHtml = `<img src="${getAssetUrl(charData.portrait)}" alt="Portrait">`;
+    }
+
+    // 血条蓝条百分比计算 (使用战斗时的实时数值)
+    const maxHp = parseInt(charData.hp);
+    const maxMp = parseInt(charData.mp);
+    const hpPercent = Math.max(0, (battleRuntime.playerHP / maxHp) * 100);
+    const mpPercent = Math.max(0, (battleRuntime.playerMP / maxMp) * 100);
+
+    // 技能网格解析
+    let skillsHtml = '';
+    charData.skills.forEach(skName => {
+        const skData = editorData.skill[skName];
+        const desc = skData ? skData.desc : '神秘的卷轴，无法解析。';
+        skillsHtml += `
+            <div class="cip-skill-card">
+                <div class="cip-skill-name">${skName}</div>
+                <div class="cip-skill-desc" title="${desc}">${desc}</div>
+            </div>
+        `;
+    });
+    if (!skillsHtml) skillsHtml = '<div style="color:rgba(255,255,255,0.3); font-size:14px; grid-column: span 2; text-align:center; padding: 20px;">该角色未装备任何主动技能。</div>';
+
+    // 状态效果 (Buffs) 解析
+    let buffsHtml = '';
+    if (battleRuntime.playerBuffs && battleRuntime.playerBuffs.length > 0) {
+        battleRuntime.playerBuffs.forEach(b => {
+            const bDef = editorData.buff[b.name];
+            const desc = bDef ? bDef.desc : '神秘的状态，效果未知。';
+            const durText = b.duration === -1 ? 'PERMANENT' : `${b.duration} ROUNDS`;
+            buffsHtml += `
+                <div class="cip-buff-row">
+                    <span class="cip-buff-name">${b.name}</span>
+                    <span class="cip-buff-dur">${durText}</span>
+                    <span class="cip-buff-desc">${desc}</span>
+                </div>
+            `;
+        });
+    } else {
+        buffsHtml = '<div style="color:rgba(255,255,255,0.3); font-size:14px; text-align:center; padding: 20px;">当前没有任何附加状态。</div>';
+    }
+
+    // 组装并注入 HTML (包含点击关闭按钮)
+    panel.innerHTML = `
+        <div class="cip-close-btn" onclick="toggleCharInfoPanel()" title="关闭面板">✖</div>
+        
+        <div class="cip-left">
+            ${portraitHtml}
+        </div>
+        <div class="cip-right">
+            <div class="cip-header">
+                <h1 class="cip-name">${shortName}</h1>
+                <div class="cip-desc">${charData.desc || '没有任何关于此人的文字记录。'}</div>
+            </div>
+
+            <div class="cip-bars">
+                <div class="cip-bar-wrap">
+                    <div class="cip-bar-fill" style="width:${hpPercent}%; background:linear-gradient(90deg, #cc0033, #ff4444); box-shadow: 0 0 15px rgba(255,68,68,0.5);"></div>
+                    <div class="cip-bar-text">HP / ${maxHp}</div>
+                </div>
+                <div class="cip-bar-wrap">
+                    <div class="cip-bar-fill" style="width:${mpPercent}%; background:linear-gradient(90deg, #0099ff, #00bfff); box-shadow: 0 0 15px rgba(0,191,255,0.5);"></div>
+                    <div class="cip-bar-text">MP / ${maxMp}</div>
+                </div>
+            </div>
+
+            <div class="cip-stats">
+                <div class="cip-stat-item"><span>Current AP:</span> ${battleRuntime.playerAP} / ${charData.ap || 3}</div>
+                <div class="cip-stat-item"><span>Base ATK:</span> ${charData.atk || 50}</div>
+            </div>
+
+            <div class="cip-section-title">EQUIPPED SKILLS</div>
+            <div class="cip-skills-grid">
+                ${skillsHtml}
+            </div>
+
+            <div class="cip-section-title">ACTIVE STATUS</div>
+            <div class="cip-buffs-list">
+                ${buffsHtml}
+            </div>
+        </div>
+    `;
+}
+
+// 3. 极客级长按侦测：按住 B 展开，松开 B 收起
+let isBPressed = false;
+document.addEventListener('keydown', (e) => {
+    // 拦截正在输入框打字的情况
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return; 
+
+    if ((e.key === 'b' || e.key === 'B') && isTestModeActive && !isDevConsoleOpen) {
+        if (!isBPressed) {
+            isBPressed = true;
+            if (!isCharInfoPanelOpen) toggleCharInfoPanel(); // 没开就打开
+        }
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if ((e.key === 'b' || e.key === 'B') && isTestModeActive) {
+        isBPressed = false;
+        if (isCharInfoPanelOpen) toggleCharInfoPanel(); // 松开就关闭
+    }
+});
 
 /* =========================================================
    ✨ 主机级阻尼菜单：鼠标滚轮 (Mouse Wheel) 驱动系统
