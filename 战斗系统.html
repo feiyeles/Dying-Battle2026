@@ -725,7 +725,7 @@
 		height: 120%; /* 💡 突破：高度设为屏幕的120%，冲出屏幕上下边缘！ */
 		width: auto; object-fit: contain; object-position: bottom right; 
 		filter: drop-shadow(10px 10px 40px rgba(0,0,0,0.6)); z-index: 2; 
-		position: absolute; bottom: -5vh; right: -5vw; /* 让立绘不仅巨型，还往右下方偏移，制造张力 */
+		position: absolute; bottom: -10vh; right: -5vw; /* 让立绘不仅巨型，还往右下方偏移，制造张力 */
 		transform-origin: bottom right; transition: transform 0.6s ease-out;
 	}
 	#char-info-panel.active .cip-left img { transform: scale(1); } /* 进场时的微小缩放效果 */
@@ -779,6 +779,221 @@
 		font-size: 20px; cursor: pointer; transition: 0.3s; backdrop-filter: blur(5px);
 	}
 	.cip-close-btn:hover { background: rgba(255,0,68,0.5); border-color: #ff0044; color: #fff; transform: rotate(90deg); box-shadow: 0 0 15px rgba(255,0,68,0.5); }
+	
+	
+	/* =========================================================
+	   ✨ 战局信息面板 (右上角) - 无边框纯文字悬浮
+	   ========================================================= */
+	#battle-info-panel {
+		position: absolute; 
+		top: 70px; 
+		right: 20px; /* 依然可以通过改这里调整位置 */
+		
+		/* 删除了 background, backdrop-filter, border 和 box-shadow */
+		background: transparent; 
+		border: none;
+		
+		padding: 15px 35px;
+		display: flex; 
+		gap: 40px; 
+		z-index: 50;
+		pointer-events: none; /* 不阻挡底层点击 */
+	}
+	.binfo-item { display: flex; flex-direction: column; align-items: center; }
+	.binfo-label { font-size: 15px; color: rgba(255, 255, 255, 0.6); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 3px; }
+	.binfo-val { font-size: 27px; font-weight: 900; color: #fff; font-family: "Impact", sans-serif; text-shadow: 0 0 10px rgba(0,191,255,0.8); }
+
+	/* =========================================================
+	   ✨ 玩家底部状态栏 (Buff Bar) & 悬浮提示框
+	   ========================================================= */
+	#player-buff-bar {
+		position: absolute; bottom: 2vh; left: 50%; transform: translateX(-50%);
+		display: flex; gap: 12px; z-index: 45;
+		justify-content: center; align-items: center;
+	}
+	.buff-icon {
+		background: rgba(0, 0, 0, 0.55);
+		backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+		border: 1px solid rgba(255, 215, 0, 0.4);
+		border-radius: 6px; padding: 6px 18px;
+		color: #ffd700; font-size: 13px; font-weight: bold; letter-spacing: 1px;
+		cursor: help; position: relative; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+		box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: auto;
+	}
+	.buff-icon:hover { background: rgba(255, 215, 0, 0.15); transform: translateY(-4px); border-color: #ffd700; }
+	
+	/* Buff 剩余回合数角标 */
+	.buff-icon .buff-dur {
+		position: absolute; top: -8px; right: -8px;
+		background: linear-gradient(135deg, #ff0044, #cc0000); color: #fff; font-size: 11px;
+		border-radius: 50%; width: 20px; height: 20px;
+		display: flex; justify-content: center; align-items: center;
+		box-shadow: 0 0 8px #ff0044; border: 1px solid #fff;
+	}
+	.buff-icon.permanent .buff-dur { background: #555; box-shadow: none; border-color: #888; font-size: 10px; }
+	
+	/* ✨ 触发特效：至臻发动时的爆闪动画 */
+	@keyframes buffFlashGlow {
+		0% { transform: scale(1); filter: brightness(1); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+		30% { transform: scale(1.3); filter: brightness(2.5); box-shadow: 0 0 30px #ffd700, 0 0 15px #fff; border-color: #fff; color: #fff; }
+		100% { transform: scale(1); filter: brightness(1); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+	}
+	.buff-icon.flashing { animation: buffFlashGlow 0.8s cubic-bezier(0.19, 1, 0.22, 1); }
+
+	/* 鼠标悬停说明框 Tooltip */
+	#buff-tooltip {
+		position: absolute; background: rgba(15, 20, 25, 0.95);
+		border: 1px solid rgba(255, 215, 0, 0.6); border-radius: 8px;
+		padding: 12px; color: #fff; font-size: 13px; width: 220px;
+		pointer-events: none; opacity: 0; transition: opacity 0.2s, transform 0.2s;
+		z-index: 2000; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+		transform: translate(-50%, calc(-100% - 15px)); margin-top: 0;
+		backdrop-filter: blur(10px);
+	}
+	#buff-tooltip .tt-title { color: #ffd700; font-weight: bold; font-size: 15px; margin-bottom: 6px; border-bottom: 1px dashed rgba(255,215,0,0.3); padding-bottom: 4px;}
+	#buff-tooltip .tt-desc { color: #ccc; line-height: 1.5; font-style: italic; }
+	
+	/* =========================================================
+	   ✨ 拖拽排序与折叠面板样式引擎
+	   ========================================================= */
+	.draggable-item { transition: box-shadow 0.2s, opacity 0.2s; }
+	.draggable-item.dragging { opacity: 0.4; box-shadow: 0 0 15px #58a6ff; transform: scale(0.98); z-index: 100; position: relative;}
+	.drag-over-top { border-top: 3px solid #58a6ff !important; margin-top: 2px;}
+	.drag-over-bottom { border-bottom: 3px solid #58a6ff !important; margin-bottom: 2px;}
+	
+	.drag-handle { 
+		cursor: grab; color: #8b949e; padding: 5px 10px; border-radius: 4px;
+		background: rgba(255,255,255,0.05); margin-right: 10px; font-weight: bold;
+	}
+	.drag-handle:active { cursor: grabbing; background: rgba(88,166,255,0.2); color: #58a6ff; }
+	
+	.collapse-header { cursor: pointer; transition: color 0.2s; user-select: none; }
+	.collapse-header:hover { color: #fff; text-shadow: 0 0 8px rgba(255,255,255,0.5); }
+	.collapse-icon { display: inline-block; transition: transform 0.3s cubic-bezier(0.19, 1, 0.22, 1); margin-right: 5px; font-size: 12px; }
+	.collapsed .collapse-icon { transform: rotate(-90deg); }
+	
+	.list-folder { background: #161b22; margin-bottom: 5px; }
+	.folder-header { 
+		color: #ffcc00; padding: 10px 15px; border-bottom: 1px solid #30363d; 
+		background: linear-gradient(90deg, #1f242c, transparent); font-weight: bold; font-size: 13px;
+	}
+	
+	/* ✨ 文件夹视觉缩进与层级特效 */
+	.folder-content { 
+		padding-left: 15px; border-left: 2px solid #30363d; margin-left: 10px; 
+		min-height: 25px; /* 空文件夹也能接收拖拽 */
+		transition: background 0.2s;
+	}
+	/* 文件夹内的实体项：取消背景，只保留虚线分隔，凸显层级 */
+	.folder-content .list-item { background-color: transparent; border-bottom: 1px dashed #21262d; }
+	.folder-content .list-item:hover { background-color: rgba(88,166,255,0.1); }
+	
+	/* 文件夹右侧的管理按钮 (重命名/删除) */
+	.folder-actions { float: right; display: flex; gap: 5px; opacity: 0; transition: 0.2s; }
+	.folder-header:hover .folder-actions { opacity: 1; }
+	.folder-btn { 
+		font-size: 12px; cursor: pointer; color: #8b949e; 
+		background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px; 
+	}
+	.folder-btn:hover { color: #fff; background: rgba(255,255,255,0.2); }
+	
+	/* 拖拽到文件夹标题上时的点亮高亮 */
+	.folder-header.drag-over { background: rgba(88, 166, 255, 0.2); border: 1px dashed #58a6ff; }
+	
+	/* =========================================================
+	   ✨ 全新打磨：连击计分板 (Combo HUD) - 高通透金色霓虹版
+	   ========================================================= */
+	#combo-hud {
+		position: absolute; top: 25%; right: 8%; z-index: 190;
+		display: flex; flex-direction: column; align-items: flex-end;
+		pointer-events: none; opacity: 0; transform: translateX(50px);
+		transition: opacity 0.3s cubic-bezier(0.19, 1, 0.22, 1), transform 0.3s cubic-bezier(0.19, 1, 0.22, 1);
+		font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif; /* 统一使用现代字体 */
+	}
+	#combo-hud.active { opacity: 1; transform: translateX(0); }
+	.combo-number { 
+		font-size: 110px; font-weight: 100; /* 极细字体更显高级 */
+		color: #fff; text-shadow: 0 0 10px #ffd700, 0 0 30px #ff8800; /* 金色发光 */
+		line-height: 0.8; 
+	}
+	.combo-text-row { display: flex; align-items: baseline; gap: 8px; margin-top: -10px;}
+	.combo-text { font-size: 30px; font-weight: bold; color: #fff; text-shadow: 0 0 15px #ff8800; letter-spacing: 2px;}
+	.combo-eval { font-size: 18px; color: #00ffff; text-shadow: 0 0 10px #00ffff; letter-spacing: 3px; font-weight: bold; transition: 0.3s; margin-top: 5px; opacity: 0; transform: translateY(-5px);}
+	.combo-eval.show { opacity: 1; transform: translateY(0); }
+	
+	/* ✨ 移除丑陋的小框，改为透明悬浮发光文字 */
+	.combo-damage { 
+		font-size: 16px; color: rgba(255, 255, 255, 0.6); margin-top: 15px; 
+		background: transparent; border: none; padding: 0; box-shadow: none; backdrop-filter: none;
+		letter-spacing: 1px;
+	}
+	.combo-dmg-val { font-size: 20px; font-weight: bold; color: #ffd700; text-shadow: 0 0 10px #ffd700;}
+
+	/* 连击爆跳动画 (简化，仅保留微微缩小再恢复) */
+	.combo-hit-anim { animation: comboModernPop 0.15s cubic-bezier(0.19, 1, 0.22, 1); }
+	@keyframes comboModernPop { 0% { transform: scale(1.1); filter: brightness(1.5); } 100% { transform: scale(1); filter: brightness(1); } }
+
+/* =========================================================
+	   ✨ 全新打磨：战斗结算界面 (Victory Screen) - 大尺寸扩展版
+	   ========================================================= */
+	#victory-screen {
+		position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+		background: rgba(5, 8, 12, 0.4); backdrop-filter: blur(35px) saturate(150%); -webkit-backdrop-filter: blur(35px) saturate(150%); 
+		z-index: 9999; display: flex; justify-content: center; align-items: center;
+		opacity: 0; pointer-events: none; transition: opacity 0.5s ease-in-out;
+		font-family: 'Segoe UI', 'Montserrat', sans-serif;
+	}
+	#victory-screen.active { opacity: 1; pointer-events: auto; }
+	#victory-bg-text { position: absolute; font-size: 25vw; font-weight: 900; color: rgba(255, 255, 255, 0.03); top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; letter-spacing: -2vw; }
+
+	/* ✨ 面板尺寸变大：从 950x550 提升到 1100x680 */
+	.victory-panel {
+		display: flex; width: 1100px; height: 680px;
+		background: rgba(10, 20, 30, 0.25); border: 1px solid rgba(0, 191, 255, 0.3); border-radius: 16px; 
+		box-shadow: 0 30px 60px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,191,255,0.1);
+		transform: scale(0.95); transition: 0.5s cubic-bezier(0.19, 1, 0.22, 1); overflow: hidden; position: relative;
+	}
+	.victory-panel::after { content:''; position:absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 40%); pointer-events: none; z-index: 10; }
+	#victory-screen.active .victory-panel { transform: scale(1); }
+	
+	/* 左侧立绘区等比放大 */
+	.victory-mvp-area { flex: 0 0 480px; position: relative; border-right: 1px solid rgba(0, 191, 255, 0.2); overflow: hidden; background: radial-gradient(circle at center, rgba(0,191,255,0.1) 0%, transparent 70%);}
+	.victory-mvp-area .media-content { width: auto; height: 125%; position: absolute; left: 50%; bottom: -25%; transform: translateX(-50%); object-fit: contain; filter: drop-shadow(10px 10px 20px rgba(0,0,0,0.8)); z-index: 2;}
+	.victory-mvp-label { position: absolute; bottom: 30px; left: 30px; color: #fff; background: rgba(0,0,0,0.6); border: 1px solid #00bfff; padding: 8px 22px; font-size: 16px; font-weight: bold; letter-spacing: 3px; border-radius: 4px; backdrop-filter: blur(5px); z-index: 3;}
+
+	/* 右侧数据区调整间距 */
+	.victory-data-area { flex: 1; padding: 50px 60px; display: flex; flex-direction: column; background: transparent; z-index: 3;}
+	.victory-title-row { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid rgba(0, 191, 255, 0.3); padding-bottom: 15px; margin-bottom: 30px;}
+	.victory-main-title { font-size: 32px; color: #fff; font-weight: bold; letter-spacing: 5px; text-shadow: 0 0 10px rgba(0,191,255,0.5);}
+	.victory-sub-title { font-size: 14px; color: rgba(0,191,255,0.8); font-weight: bold; letter-spacing: 1px;}
+	
+	.victory-rank-row { display: flex; align-items: center; gap: 40px; margin-bottom: 40px; }
+	.victory-rank-label { font-size: 24px; color: rgba(255,255,255,0.8); font-weight: bold; letter-spacing: 2px;}
+	.victory-rank-val { font-size: 110px; font-weight: 900; font-family: 'Impact', sans-serif; font-style: italic; line-height: 0.8; animation: modernRankPulse 2s infinite alternate;}
+	@keyframes modernRankPulse { from { filter: drop-shadow(0 0 15px currentColor); } to { filter: drop-shadow(0 0 35px currentColor) brightness(1.3); } }
+	
+	/* ✨ 移除战利品，让数据网格更大、更舒展 */
+	.victory-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px 30px; margin-bottom: auto; font-size: 16px; color: rgba(255,255,255,0.9); }
+	.v-stat-item { border-bottom: 1px dashed rgba(255,255,255,0.15); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+	.v-stat-label { color: rgba(255,255,255,0.5); font-size: 14px;}
+	.v-stat-val { font-weight: bold; color: #fff; font-size: 18px; text-shadow: 0 0 5px rgba(255,255,255,0.3);}
+	.v-stat-val.highlight { color: #ffd700; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
+	
+	.victory-btn { 
+		width: 100%; margin-top: 30px; background: rgba(0,191,255,0.1); 
+		color: #00bfff; border: 1px solid #00bfff; border-radius: 8px;
+		padding: 18px; font-size: 22px; font-weight: bold; cursor: pointer; transition: 0.3s; 
+		letter-spacing: 8px; backdrop-filter: blur(5px);
+	}
+	.victory-btn:hover { background: #00bfff; color: #000; box-shadow: 0 0 20px rgba(0,191,255,0.6); }
+	
+	/* ==========================================
+	   ✨ 结算界面：SABC 评级专属颜色与霓虹发光特效
+	   ========================================================= */
+	.rank-s { color: #ffd700; text-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 10px #fff; } /* S级：辉煌流金 */
+	.rank-a { color: #ff0055; text-shadow: 0 0 30px rgba(255, 0, 85, 0.8), 0 0 10px #fff; }  /* A级：猩红耀光 */
+	.rank-b { color: #00bfff; text-shadow: 0 0 30px rgba(0, 191, 255, 0.8), 0 0 10px #fff; }  /* B级：深海幽蓝 */
+	.rank-c { color: #aaaaaa; text-shadow: 0 0 30px rgba(170, 170, 170, 0.8); }             /* C级：黯淡冷灰 */
 
 
 </style>
@@ -794,6 +1009,7 @@
 				<select id="level-selector" onchange="switchLevel(this.value)" style="background: #111; color: white; border: 1px solid #444; padding: 5px; outline: none; border-radius: 3px; cursor: pointer;"></select>
 				<button onclick="createNewLevel()" style="background: none; border: none; color: #00b400; cursor: pointer; font-size: 16px; padding: 0 5px;" title="新建空白关卡">➕</button>
 				<button onclick="deleteCurrentLevel()" style="background: none; border: none; color: #ff4444; cursor: pointer; font-size: 16px; padding: 0 5px;" title="删除当前关卡">🗑️</button>
+				<button onclick="openModal('关卡 SABC 评级设定', 'level', currentLevelName)" style="background: none; border: none; color: #ffd700; cursor: pointer; font-size: 16px; padding: 0 5px;" title="设定该关卡的SABC通关条件">🏆</button>
 			</div>
 			
 			<div style="display: flex; align-items: center; gap: 5px; background: #1a2a3a; padding: 2px 10px; border-radius: 4px; border: 1px solid #2b5797; margin-right: 10px;">
@@ -823,8 +1039,15 @@
 				<div class="tab" onclick="switchTab('camera')">镜头</div>
 				<div class="tab" onclick="switchTab('resource')">资源</div>
 			</div>
+			<div style="padding: 10px; background: #161b22; border-bottom: 1px solid #30363d;">
+				<input type="text" id="sidebar-search" placeholder="🔍 搜索当前分类 (打字自动过滤)..." style="width:100%; padding: 8px; background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px; box-sizing: border-box;" oninput="renderList()">
+			</div>
 			<div class="item-list" id="editor-list"></div>
-			<div class="add-btn" onclick="addNewItem()">+ 新增当前类型</div>
+			<div class="item-list" id="editor-list"></div>
+			<div style="display: flex; border-top: 1px solid #30363d;">
+				<div class="add-btn" id="btn-add-folder" onclick="addNewFolder()" style="flex: 1; background: #8b6b00; border-right: 1px solid #30363d; padding: 12px 0;" title="新建文件夹">📁 文件夹</div>
+				<div class="add-btn" id="btn-add-item" onclick="addNewItem()" style="flex: 2; padding: 12px 0;">+ 新增实体</div>
+			</div>
 		</div>
 
 		<div class="workspace">
@@ -922,11 +1145,32 @@
             </div>
         </div>
     </div>
+	
+	<div id="battle-info-panel">
+        <div class="binfo-item"><span class="binfo-label">当前回合</span><span class="binfo-val" id="ui-turn-count">1</span></div>
+        <div class="binfo-item"><span class="binfo-label">剩余敌人</span><span class="binfo-val" id="ui-enemy-count">0</span></div>
+    </div>
+    
+    <div id="player-buff-bar"></div>
+    
+    <div id="buff-tooltip">
+        <div class="tt-title" id="tt-name">状态名称</div>
+        <div class="tt-desc" id="tt-desc">状态效果的详细描述文本...</div>
+    </div>
     
     <div id="game-scene">
         <div id="battle-stage">
 		     <div id="battle-bg-layer" style="position:absolute; width:120%; height:120%; top:-10%; left:-10%; z-index:0;"></div>
             <div id="spotlight-overlay"></div>
+			
+			<div id="combo-hud">
+            <div class="combo-number-wrapper">
+                <span class="combo-number" id="combo-num">0</span>
+                <span class="combo-text">HITS!</span>
+            </div>
+            <div class="combo-eval" id="combo-eval"></div>
+            <div class="combo-damage">DMG: <span id="combo-dmg-val">0</span></div>
+        </div>
             
             <div id="player" class="character-placeholder"></div>
 
@@ -1583,6 +1827,7 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 			cloudConfig.token = parsed.token || '';
 			cloudConfig.gistId = parsed.gistId || DEFAULT_GIST_ID; 
 			cloudConfig.autoSyncInterval = parsed.autoSyncInterval || 0;
+			cloudConfig.lastSync = parsed.lastSync || '';
 		} else {
             cloudConfig.gistId = DEFAULT_GIST_ID;
         }
@@ -1604,8 +1849,15 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 	function updateCloudStatus(status, extra = '') {
 		const el = document.getElementById('cloud-status');
 		if (!el) return;
+        
+        // ✨ 新增：构建上次同步时间的专属 UI (淡蓝色)
+        let syncTimeHtml = '';
+        if (cloudConfig && cloudConfig.lastSync) {
+            syncTimeHtml = `<span style="color:#58a6ff; font-size:11px; margin-left: 6px; letter-spacing: 0.5px;">[最后同步: ${cloudConfig.lastSync}]</span>`;
+        }
+
 		if (status === '未连接') el.innerHTML = `☁️ <span style="color:#aaa;">未连接</span>`;
-		else if (status === '已连接') el.innerHTML = `☁️ <span style="color:#00b400;">已连接</span> <span style="color:#888;font-size:11px;">${extra}</span>`;
+		else if (status === '已连接') el.innerHTML = `☁️ <span style="color:#00b400;">已连接</span> <span style="color:#888;font-size:11px;">${extra}</span>${syncTimeHtml}`;
 		else if (status === '同步中') el.innerHTML = `☁️ <span style="color:#0088ff; font-weight:bold;">同步中...</span>`;
 		else if (status === '错误') el.innerHTML = `☁️ <span style="color:#ff4444;">同步失败!</span>`;
 	}
@@ -1635,6 +1887,10 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 			});
 			
 			if (!response.ok) throw new Error('API 响应错误');
+			
+			const now = new Date();
+            cloudConfig.lastSync = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            localStorage.setItem('rpg_cloud_config', JSON.stringify(cloudConfig));
 			
 			if (!isAuto) showToast("☁️ 成功覆盖至云端!", "#00b400");
 			updateCloudStatus('已连接', '(可读写)');
@@ -1704,6 +1960,10 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
             renderList(); 
             initWorkspace();
 			
+			const now = new Date();
+            cloudConfig.lastSync = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            localStorage.setItem('rpg_cloud_config', JSON.stringify(cloudConfig));
+			
 			if (!isSilent) showToast("📥 成功从云端拉取游戏数据!", "#00b400");
 			
             // 更新 UI 权限状态
@@ -1766,6 +2026,53 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 		}
 	}
 	
+	// 🌟 ✨ 核心黑科技：无缝平滑切换实体媒体 (双重缓冲机制，彻底消灭切换闪烁)
+	function changeEntityMediaSmooth(container, url, isLoop = true, jumpToEnd = false) {
+		if (!container || !url) return;
+
+		// 1. 获取即将被淘汰的旧媒体，设为绝对定位，让它在原地“垫底”
+		const oldMedias = container.querySelectorAll('.media-content');
+		oldMedias.forEach(m => {
+			m.classList.remove('new-media');
+			m.classList.add('old-media');
+			m.style.position = 'absolute'; 
+			m.style.left = '0';
+			m.style.bottom = '0';
+			m.style.zIndex = '1';
+		});
+
+		// 2. 将新媒体打上 new-media 标签，直接塞入容器
+		const newHtml = renderMediaTag(url, "new-media", isLoop, jumpToEnd);
+		container.insertAdjacentHTML('beforeend', newHtml);
+		
+		const newMedia = container.querySelector('.new-media');
+		if (newMedia) {
+			newMedia.style.position = 'relative'; // 新媒体撑起容器骨架
+			newMedia.style.zIndex = '2';         // 盖在旧图上面
+
+			// 3. 卸磨杀驴函数：确认新媒体加载出了第一帧，就斩杀旧媒体
+			let isCleaned = false;
+			const cleanUpOld = () => {
+				if (isCleaned) return;
+				isCleaned = true;
+				container.querySelectorAll('.old-media').forEach(m => m.remove());
+				newMedia.classList.remove('new-media');
+			};
+
+			// 4. 监听新媒体的加载事件，无缝衔接
+			if (newMedia.tagName === 'IMG') {
+				if (newMedia.complete) cleanUpOld(); // 如果图片秒出（在浏览器缓存里），直接清理
+				else newMedia.onload = cleanUpOld;   // 否则等加载完再清理
+			} else if (newMedia.tagName === 'VIDEO') {
+				if (newMedia.readyState >= 2) cleanUpOld(); // readyState >= 2 表示有当前帧数据了
+				else newMedia.onloadeddata = cleanUpOld;
+			}
+
+			// 5. 终极兜底：防止 onload 事件因网络问题迷路，250毫秒后强行清理，避免DOM无限堆积
+			setTimeout(cleanUpOld, 250);
+		}
+	}
+	
 	// 🌟 独立并发音效播放器 (接入缓存池版)
 	function playSFX(resName) {
 		if (!isTestModeActive || !resName) return;
@@ -1817,7 +2124,7 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 	
 	
 	
-	// 🌟 独立受击特效发生器 (接入缓存池版)
+	// 🌟 独立受击特效发生器 (防镜头缩放偏移升级版 + 支持自定义微调)
 	function spawnHitEffect(targetIdx, resName, isPlayerTarget = false) {
 		let finalUrl = getAssetUrl(resName);
 		if (!finalUrl) return;
@@ -1831,25 +2138,34 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 
 		let centerX, centerY, effectSize;
 		const stageRect = stage.getBoundingClientRect();
+		
+		// ✨ 核心黑科技：获取舞台当前的真实缩放比例 (Screen Space -> World Space)
+		const scaleX = stageRect.width / stage.offsetWidth || 1;
+		const scaleY = stageRect.height / stage.offsetHeight || 1;
+
+		// ✨ 获取当前关卡的排版偏移配置
+		const lvlLayout = editorData.level[currentLevelName]?.layout || {};
 
 		if (isPlayerTarget) {
 			const pEl = document.getElementById('player');
 			const rect = pEl.getBoundingClientRect();
-			centerX = (rect.left + rect.width * 0.2) - stageRect.left; 
-			centerY = (rect.top + rect.height * 0.5) - stageRect.top;
+			// 在屏幕空间算出距离后，除以缩放比例，抵消镜头的双倍放大干扰！加上面板里的微调配置！
+			centerX = ((rect.left - stageRect.left) + rect.width * 0.2) / scaleX + (lvlLayout.vfxPlayerX || 0); 
+			centerY = ((rect.top - stageRect.top) + rect.height * 0.5) / scaleY + (lvlLayout.vfxPlayerY || 0);
 			effectSize = '500px'; 
 		} else if (targetIdx !== null) {
 			const eEl = document.getElementById(`test-enemy-${targetIdx}`);
 			if (!eEl) return;
 			const rect = eEl.getBoundingClientRect();
-			centerX = (rect.left + rect.width * -0.5) - stageRect.left;
-			centerY = (rect.top + rect.height * 0.5) - stageRect.top;
+			// ✨ 修复：把 -0.5 改成了正 0.5，并加上了面板里的微调配置！
+			centerX = ((rect.left - stageRect.left) + rect.width * 0.5) / scaleX + (lvlLayout.vfxEnemyX || 0);
+			centerY = ((rect.top - stageRect.top) + rect.height * 0.5) / scaleY + (lvlLayout.vfxEnemyY || 0);
 			effectSize = '400px'; 
 		} else {
 			const eContainer = document.getElementById('test-enemies-container');
 			const rect = eContainer.getBoundingClientRect();
-			centerX = (rect.left + rect.width * 0.7) - stageRect.left;
-			centerY = (rect.top + rect.height * 1.0) - stageRect.top;
+			centerX = ((rect.left - stageRect.left) + rect.width * 0.7) / scaleX;
+			centerY = ((rect.top - stageRect.top) + rect.height * 1.0) / scaleY;
 			effectSize = '50vw'; 
 		}
 
@@ -1869,18 +2185,14 @@ async function executePreload(levelName, updateProgressCallback, checkSkipCallba
 		stage.appendChild(effectDiv);
 	}
 	
-	// 🌟 新增：实体状态精灵图强制替换器 (Sprite Hold 机制)
+	// 🌟 实体状态精灵图强制替换器 (无缝缓冲版)
 	function setEntitySprite(targetIdx, url, isLoop = true) {
 		if (!url) return;
 		const el = targetIdx === 'player' ? document.getElementById('player') : document.getElementById(`test-enemy-${targetIdx}`);
 		if (!el) return;
 		
-		// 找到旧的媒体层并销毁，换上新的
-		const oldMedia = el.querySelector('.media-content');
-		if (oldMedia) oldMedia.remove();
-		
-		// ✨ 致命修复：最后一个参数必须传 false！保证视频必须从头开始播放，播到末尾自动暂停并定格！
-		el.insertAdjacentHTML('beforeend', renderMediaTag(url, "", isLoop, false));
+		// ✨ 接入新的平滑切换引擎 (注意最后一个参数强制传 false 保证连贯)
+		changeEntityMediaSmooth(el, url, isLoop, false);
 	}
 	
 	// 🌟 新增辅助：获取敌人当前该播放的待机动画 (健康 vs 虚弱)
@@ -1927,9 +2239,10 @@ function updateFieldState() {
             }
         }
     });
+	updateBattleInfoUI();
 }
 	
-	// 🌟 新增：独立浮动文字发生器 (精准雷达定位版)
+	// 🌟 独立浮动文字发生器 (精准雷达定位版 - 防镜头缩放偏移升级版)
 	function spawnFloatingText(targetIdx, value, type) {
 		let targetEl;
 		if (targetIdx === 'player') targetEl = document.getElementById('player');
@@ -1937,29 +2250,34 @@ function updateFieldState() {
 
 		if (!targetEl) return;
 
-		// ✨ 核心黑科技：提取目标相对于“战斗舞台”的真实物理坐标
 		const stage = document.getElementById('battle-stage');
 		const stageRect = stage.getBoundingClientRect();
 		const targetRect = targetEl.getBoundingClientRect();
 		
-		let centerX = targetRect.left - stageRect.left;
-		let centerY = targetRect.top - stageRect.top;
+		// ✨ 获取舞台当前的真实缩放比例，隔离镜头畸变
+		const scaleX = stageRect.width / stage.offsetWidth || 1;
+		const scaleY = stageRect.height / stage.offsetHeight || 1;
 		
+		// 算出绝对免疫缩放的纯净 CSS 内部坐标
+		let centerX = (targetRect.left - stageRect.left) / scaleX;
+		let centerY = (targetRect.top - stageRect.top) / scaleY;
+		const internalWidth = targetRect.width / scaleX;
+		const internalHeight = targetRect.height / scaleY;
+		
+		const lvlLayout = editorData.level[currentLevelName]?.layout || {};
+
 		// 精准校调爆字位置
 		if (targetIdx === 'player') {
-			// 因为玩家立绘是靠左对齐的，宽度又很大，所以我们将爆字强行拉到立绘的身上 (靠左 30% 处)
-			centerX += targetRect.width * 0.2;
-			centerY += targetRect.height * 0.5;
+			centerX += internalWidth * 0.2 + (lvlLayout.vfxPlayerX || 0);
+			centerY += internalHeight * 0.5 + (lvlLayout.vfxPlayerY || 0);
 		} else {
-			// 敌人的框比较小，直接居中偏上，防挡血条
-			centerX += targetRect.width * 0.5;
-			centerY += targetRect.height * 0.4; 
+			centerX += internalWidth * 0.5 + (lvlLayout.vfxEnemyX || 0);
+			centerY += internalHeight * 0.4 + (lvlLayout.vfxEnemyY || 0); 
 		}
 
 		let color = '#fff';
 		let prefix = '';
 		
-		// 分配颜色和前缀符号
 		if (type === 'damage') { color = '#ff3333'; prefix = '-'; }
 		else if (type === 'heal_hp' || type === 'heal_single') { color = '#00ff00'; prefix = '+'; }
 		else if (type === 'recover_mp') { color = '#00bfff'; prefix = '+'; }
@@ -1970,18 +2288,13 @@ function updateFieldState() {
 		floatDiv.style.color = color;
 		floatDiv.innerText = `${prefix}${value}`;
 		
-		// 稍微加一点点随机横向/纵向偏移，连发伤害时不会叠在一起
 		const randomOffsetX = (Math.random() - 0.5) * 40;
 		const randomOffsetY = (Math.random() - 0.5) * 40;
 		
-		// 把计算好的坐标注入进去
 		floatDiv.style.left = `${centerX + randomOffsetX}px`;
 		floatDiv.style.top = `${centerY + randomOffsetY}px`;
 
-		// ✨ 致命修复：把爆字挂在最高层舞台上，绝对不会被重绘刷掉，也不会被裁切！
 		stage.appendChild(floatDiv);
-
-		// 1.2秒动画结束后自我销毁
 		setTimeout(() => floatDiv.remove(), 1200);
 	}
 	
@@ -2017,7 +2330,7 @@ function updateFieldState() {
 		banner.style.animation = 'bannerSlash 2s forwards cubic-bezier(0.22, 1, 0.36, 1)';
 	}
 
-	// 🌟 新增：主角多状态待机切换器 (仪式感核心)
+	// 🌟 主角多状态待机切换器 (仪式感核心 + 无缝缓冲版)
 	function switchPlayerAnim(state) {
 		const pStats = editorData.character[activePlayer];
 		let url = pStats.idleAnim; // 默认普通待机 (敌方回合/场外)
@@ -2030,7 +2343,6 @@ function updateFieldState() {
 		} else if (state === 'skill' && pStats.skillSelectIdleAnim) { 
 			url = pStats.skillSelectIdleAnim; // 施法待机
 		} 
-		// ✨ 新增：道具翻找状态 与 准备攻击状态
 		else if (state === 'item' && pStats.itemIdleAnim) {
 			url = pStats.itemIdleAnim;
 		} else if (state === 'prepare' && pStats.prepareIdleAnim) {
@@ -2038,15 +2350,40 @@ function updateFieldState() {
 		}
 		
 		const playerEl = document.getElementById('player');
-		const shortName = activePlayer.split(' ')[0];
 		
-		playerEl.innerHTML = `
-			<div class="hp-display" style="position:absolute; top:0; width:100%; background:rgba(0,0,0,0.5); color:white; z-index:5;">
-				${shortName}<br>HP: <span id="player-hp-val">${battleRuntime.playerHP}</span><br>MP: <span id="player-mp-val">${battleRuntime.playerMP}</span>
-			</div>
-			${renderMediaTag(url, "", isLoop, jumpToEnd)}
-		`;
+		// ✨ 保护玩家顶部的血条 UI 不被粗暴覆盖
+		let hpDiv = playerEl.querySelector('.hp-display');
+		if (!hpDiv) {
+			const shortName = activePlayer.split(' ')[0];
+			playerEl.innerHTML = `
+				<div class="hp-display" style="position:absolute; top:0; width:100%; background:rgba(0,0,0,0.5); color:white; z-index:10;">
+					${shortName}<br>HP: <span id="player-hp-val">${battleRuntime.playerHP}</span><br>MP: <span id="player-mp-val">${battleRuntime.playerMP}</span>
+				</div>
+			`;
+		} else {
+			hpDiv.style.zIndex = '10'; // 确保头顶血条永远在最上层
+		}
+
+		// ✨ 接入新的平滑切换引擎
+		changeEntityMediaSmooth(playerEl, url, isLoop, jumpToEnd);
 	}
+	
+	// 🌟 新增：近战分镜时间轴解析引擎 (格式: 0.2/0.6/0.8)
+function parseMeleeTiming(timingStr) {
+    // 如果没有配置，给一个默认的三段式兜底 (突进0.15s, 停留至0.6s, 结束0.8s)
+    const str = timingStr || '0.15/0.6/0.8';
+    const parts = str.split('/');
+    
+    const t1 = parseFloat(parts[0]) || 0.15; // 到达目标时间
+    const t2 = parseFloat(parts[1]) || 0.6;  // 开始退回时间
+    const t3 = parseFloat(parts[2]) || 0.8;  // 回到原位(总时长)
+
+    const duration = t3 * 1000;              // 转换为毫秒给 Web API
+    const offset1 = t1 / t3;                 // 算出版在总进度中的百分比
+    const offset2 = t2 / t3;                 // 算出退回点在总进度的百分比
+
+    return { duration, offset1, offset2 };
+}
 
 	
 	// 🌟 核心引擎：解析时间轴文本，转为动画关键帧
@@ -2358,26 +2695,106 @@ function updateFieldState() {
 	}
 		
 	// 🌟 刷新我方右下角状态条 UI
-function updatePlayerStatusUI() {
-    const pStats = editorData.character[activePlayer];
-    const maxHP = parseInt(pStats.hp);
-    const maxMP = parseInt(pStats.mp);
-    const maxAP = parseInt(pStats.ap || 3);
-    
-    document.getElementById('player-hp-text').innerText = `HP: ${battleRuntime.playerHP}/${maxHP}`;
-    document.getElementById('player-mp-text').innerText = `MP: ${battleRuntime.playerMP}/${maxMP}`;
-    document.getElementById('player-ap-text').innerText = `AP: ${battleRuntime.playerAP}/${maxAP}`; // 更新文字
-    
-    const hpPercent = Math.max(0, (battleRuntime.playerHP / maxHP) * 100);
-    const mpPercent = Math.max(0, (battleRuntime.playerMP / maxMP) * 100);
-    const apPercent = Math.max(0, (battleRuntime.playerAP / maxAP) * 100);
-    
-    document.getElementById('player-hp-bar').style.width = hpPercent + '%';
-    document.getElementById('player-mp-bar').style.width = mpPercent + '%';
-    document.getElementById('player-ap-bar').style.width = apPercent + '%'; // 更新黄条
-}
+// 🌟 刷新我方右下角状态条 UI (完整形态)
+	function updatePlayerStatusUI() {
+		if (!activePlayer || !editorData.character[activePlayer]) return;
+		const pStats = editorData.character[activePlayer];
+		
+		const maxHP = parseInt(pStats.hp) || 1000;
+		const maxMP = parseInt(pStats.mp) || 300;
+		const maxAP = parseInt(pStats.ap) || 3;
 
-// (你可以放心地把 let cameraWatchdogTimer = null; 这行删掉，不再需要它了)
+		// 1. 更新左下角立绘头顶上的数值 (如果存在的话)
+		const hpValEl = document.getElementById('player-hp-val');
+		if(hpValEl) hpValEl.innerText = battleRuntime.playerHP;
+		const mpValEl = document.getElementById('player-mp-val');
+		if(mpValEl) mpValEl.innerText = battleRuntime.playerMP;
+
+		// 2. 更新右下角 HP 条
+		document.getElementById('player-hp-text').innerText = `HP: ${battleRuntime.playerHP}/${maxHP}`;
+		document.getElementById('player-hp-bar').style.width = Math.max(0, (battleRuntime.playerHP / maxHP) * 100) + '%';
+
+		// 3. 更新右下角 MP 条
+		document.getElementById('player-mp-text').innerText = `MP: ${battleRuntime.playerMP}/${maxMP}`;
+		document.getElementById('player-mp-bar').style.width = Math.max(0, (battleRuntime.playerMP / maxMP) * 100) + '%';
+
+		// 4. 更新右下角 AP 条 (含超载爆气逻辑)
+		const apPercent = Math.max(0, (battleRuntime.playerAP / maxAP) * 100);
+		const apBar = document.getElementById('player-ap-bar');
+		const apText = document.getElementById('player-ap-text');
+
+		apText.innerText = `AP: ${battleRuntime.playerAP}/${maxAP}`;
+		
+		// 防止百分比超过100导致右侧条撑爆UI
+		apBar.style.width = Math.min(apPercent, 100) + '%'; 
+
+		// ✨ 爆气视觉反馈：如果 AP 突破了上限，黄色 AP 条会变成狂暴的青蓝色发光状态
+		if (battleRuntime.playerAP > maxAP) {
+			apBar.style.backgroundColor = '#00ffff';
+			apBar.style.boxShadow = '0 0 15px #00ffff';
+			apText.style.color = '#00ffff';
+		} else {
+			// 恢复正常黄色
+			apBar.style.backgroundColor = '#ffcc00';
+			apBar.style.boxShadow = '0 0 8px #ffcc00';
+			apText.style.color = '#ffcc00';
+		}
+	}
+	
+	// 🌟 战局信息刷新引擎 (回合数 & 剩余敌人)
+	function updateBattleInfoUI() {
+		const turnEl = document.getElementById('ui-turn-count');
+		const enemyEl = document.getElementById('ui-enemy-count');
+		if (!turnEl || !enemyEl) return;
+		
+		turnEl.innerText = battleRuntime.currentTurn || 1;
+		
+		// 活着的敌人 = 场上活着的 + 没出场的(如果开启了车轮战)
+		const aliveOnField = battleRuntime.field ? battleRuntime.field.filter(e => e.hp > 0).length : 0;
+		const inPool = (activeEnemies && battleRuntime.poolIndex !== undefined) ? Math.max(0, activeEnemies.length - battleRuntime.poolIndex) : 0;
+		
+		enemyEl.innerText = aliveOnField + inPool;
+	}
+
+	// 🌟 玩家底部状态栏 (Buff Bar) 刷新引擎
+	function updatePlayerBuffsUI() {
+		const bar = document.getElementById('player-buff-bar');
+		if (!bar) return;
+		bar.innerHTML = '';
+		
+		const buffs = battleRuntime.playerBuffs || [];
+		buffs.forEach((b, idx) => {
+			const bDef = editorData.buff[b.name];
+			const durText = b.duration === -1 ? '∞' : b.duration;
+			const isPerm = b.duration === -1 ? 'permanent' : '';
+			const desc = bDef ? (bDef.desc || '没有任何描述。') : '未知状态';
+			
+			const icon = document.createElement('div');
+			icon.className = `buff-icon ${isPerm}`;
+			icon.id = `ui-buff-${idx}`; // 赋予唯一ID，方便后面做高亮闪烁
+			icon.innerHTML = `${b.name}<div class="buff-dur">${durText}</div>`;
+			
+			// 绑定鼠标悬浮 Tooltip 逻辑
+			icon.onmouseenter = (e) => {
+				const tt = document.getElementById('buff-tooltip');
+				document.getElementById('tt-name').innerText = b.name;
+				document.getElementById('tt-desc').innerText = desc;
+				
+				// 自动计算坐标并显示在正上方
+				const rect = icon.getBoundingClientRect();
+				tt.style.left = rect.left + (rect.width / 2) + 'px';
+				tt.style.top = rect.top + 'px';
+				tt.style.opacity = 1;
+				tt.style.transform = `translate(-50%, calc(-100% - 15px)) scale(1)`;
+			};
+			icon.onmouseleave = () => {
+				document.getElementById('buff-tooltip').style.opacity = 0;
+				document.getElementById('buff-tooltip').style.transform = `translate(-50%, calc(-100% - 5px)) scale(0.95)`;
+			};
+			
+			bar.appendChild(icon);
+		});
+	}
 
 	// 🌟 引擎升级：无残留 WAAPI 镜头调度器 (彻底消灭死锁与图层冲突)
 	function setBaseCamera(animName) {
@@ -2555,85 +2972,172 @@ function updatePlayerStatusUI() {
 	   ---------------------------------- */
 	function switchTab(tabName) {
 		currentTab = tabName;
-        currentResourceCategory = null; // ✨ 切换大标签时，清空资源的子分类状态
+        currentResourceCategory = null; 
 		document.querySelectorAll('.tab').forEach(el => {
 			el.classList.remove('active');
 			if(el.getAttribute('onclick').includes(tabName)) { el.classList.add('active'); }
 		});
+        
+        // ✨ 新增：切换大标签时，顺手清空一下搜索框
+        const searchBox = document.getElementById('sidebar-search');
+        if (searchBox) searchBox.value = '';
+        
 		renderList();
 	}
 
 function renderList() {
 		const listDiv = document.getElementById('editor-list');
 		listDiv.innerHTML = '';
-		
-		// 防崩处理：如果当前标签的数据不是对象，初始化它
 		if (!editorData[currentTab]) editorData[currentTab] = {};
 		
-		// ✨✨✨ 新增：资源大分类视图 (文件夹界面)
+		const btnAddFolder = document.getElementById('btn-add-folder');
+		const btnAddItem = document.getElementById('btn-add-item');
+
 		if (currentTab === 'resource' && !currentResourceCategory) {
 			listDiv.innerHTML = `
 				<div class="list-item" style="justify-content:center; background:#003366;" onclick="enterResourceCategory('image')">🖼️ 图片资源 (Image)</div>
 				<div class="list-item" style="justify-content:center; background:#004422;" onclick="enterResourceCategory('audio')">🎵 音频音效 (Audio)</div>
 				<div class="list-item" style="justify-content:center; background:#442200;" onclick="enterResourceCategory('video')">🎬 视频资源 (Video)</div>
 			`;
-			document.querySelector('.add-btn').style.display = 'none'; // 顶层隐藏底部的“新增”按钮
-			return; // 直接打断，不再渲染具体条目
+			if (btnAddFolder) btnAddFolder.style.display = 'none';
+			if (btnAddItem) btnAddItem.style.display = 'none';
+			return; 
 		}
 
-		document.querySelector('.add-btn').style.display = 'block'; // 恢复显示新增按钮
+		if (btnAddFolder) btnAddFolder.style.display = 'block';
+		if (btnAddItem) btnAddItem.style.display = 'block';
 		
 		let items = Array.isArray(editorData[currentTab]) ? editorData[currentTab] : Object.keys(editorData[currentTab]);
 		
-		// ✨✨✨ 新增：资源子分类视图 (过滤并显示返回按钮)
 		if (currentTab === 'resource' && currentResourceCategory) {
-			listDiv.innerHTML = `
-				<div class="list-item" style="justify-content:center; background:#444; border-bottom: 2px solid #aaa; color: #ffcc00;" onclick="enterResourceCategory(null)">⬅️ 返回分类列表</div>
-			`;
-			// 过滤掉不属于当前分类的资源
+			listDiv.innerHTML = `<div class="list-item" style="justify-content:center; background:#444; border-bottom: 2px solid #aaa; color: #ffcc00;" onclick="enterResourceCategory(null)">⬅️ 返回分类列表</div>`;
 			items = items.filter(item => editorData.resource[item].type === currentResourceCategory);
 		}
 		
-		items.forEach(item => {
+		const searchBox = document.getElementById('sidebar-search');
+		const searchKw = searchBox ? searchBox.value.toLowerCase().trim() : '';
+
+		const createListItemDom = (item) => {
 			const div = document.createElement('div');
-			const baseCameras = ['玩家机位', '操作机位', '瞄准机位', '敌方机位', '全局机位', '默认攻击特写', '地震抖动特效'];
-			let delBtnHtml = '';
-			if (currentTab === 'camera' && baseCameras.includes(item)) {
-				delBtnHtml = `<span style="color:#666; font-size:12px;">(内置)</span>`; // 内置机位不可删
-			} else {
-				delBtnHtml = `<span class="del-btn" style="color:#ff4444; font-size:16px; cursor:pointer;" title="删除">🗑️</span>`;
-			}
-			div.className = 'list-item';
-			div.style.display = 'flex';
-			div.style.justifyContent = 'space-between';
-			div.style.alignItems = 'center';
+			div.className = 'list-item draggable-item';
+			div.dataset.itemname = item; 
+			div.draggable = true;
+			div.ondragstart = window.handleDragStart; div.ondragend = window.handleDragEnd;
+			div.ondragover = window.handleDragOver; div.ondrop = (e) => window.handleDrop(e, 'sidebar');
+			div.ondragleave = (e) => e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
 			
-			div.innerHTML = `
-				<span style="flex-grow:1" onclick="openModal('编辑 ${item}', '${currentTab}', '${item}')">${item}</span>
-				${delBtnHtml}
+			const baseCameras = ['玩家机位', '操作机位', '瞄准机位', '敌方机位', '全局机位', '默认攻击特写', '地震抖动特效'];
+			let delBtnHtml = (currentTab === 'camera' && baseCameras.includes(item)) ? `<span style="color:#666; font-size:12px;">(内置)</span>` : `<span class="del-btn" style="color:#ff4444; font-size:16px; cursor:pointer;" title="删除">🗑️</span>`;
+			div.innerHTML = `<span style="flex-grow:1" onclick="openModal('编辑 ${item}', '${currentTab}', '${item}')">${item}</span>${delBtnHtml}`;
+			
+			const delBtn = div.querySelector('.del-btn');
+			if (delBtn) delBtn.onclick = (e) => { e.stopPropagation(); if (confirm(`⚠️ 确定要彻底删除 [${item}] 吗？`)) { pushHistory(); if (Array.isArray(editorData[currentTab])) { const idx = editorData[currentTab].indexOf(item); if (idx > -1) editorData[currentTab].splice(idx, 1); } else { delete editorData[currentTab][item]; } saveToLocal(true); renderList(); } };
+			return div;
+		};
+
+		// ✨ 核心机制：搜集实打实建出来的文件夹
+		const fTab = getActualFolderTab();
+		let grouped = { '': [] }; 
+		if (editorData._folders && editorData._folders[fTab]) {
+			editorData._folders[fTab].forEach(f => { if (!grouped[f]) grouped[f] = []; });
+		}
+
+		// 归纳数据
+		items.forEach(item => {
+			let f = (editorData[currentTab][item] && editorData[currentTab][item]._folder) || '';
+			if (!grouped[f]) grouped[f] = []; // 兼容残留的孤魂野鬼文件夹
+			if (!searchKw || item.toLowerCase().includes(searchKw)) grouped[f].push(item);
+		});
+
+		// 渲染文件夹及内容
+		for (let folderName in grouped) {
+			if (folderName === '') continue;
+			if (searchKw && grouped[folderName].length === 0) continue; // 搜索时隐藏空文件夹
+
+			const folderDiv = document.createElement('div');
+			folderDiv.className = 'list-folder'; folderDiv.dataset.foldername = folderName;
+			
+			// ✨ 生成唯一ID (如: character_主角团)，防止技能页面和道具页面的同名文件夹互相干扰
+			const folderUniqueKey = fTab + '_' + folderName;
+			const isCollapsed = collapsedFolders[folderUniqueKey] ? 'collapsed' : '';
+			const displayStyle = collapsedFolders[folderUniqueKey] ? 'none' : 'block';
+
+			// ✨ 绑定专属的唯一ID
+			folderDiv.innerHTML = `
+				<div class="folder-header collapse-header ${isCollapsed}" onclick="toggleFolder(this, '${folderUniqueKey}')" 
+					 ondragover="window.handleFolderDragOver(event)" ondrop="window.handleFolderDrop(event, '${folderName}')" ondragleave="window.handleFolderDragLeave(event)">
+					<span class="collapse-icon">▼</span> 📁 ${folderName}
+					<div class="folder-actions">
+						<span class="folder-btn" onclick="renameFolder(event, '${folderName}')" title="重命名">✎</span>
+						<span class="folder-btn" onclick="deleteFolder(event, '${folderName}')" title="删除文件夹">✖</span>
+					</div>
+				</div>
 			`;
 			
-			// 绑定删除功能
-			const delBtn = div.querySelector('.del-btn');
-			if (delBtn) {
-				delBtn.onclick = (e) => {
-					e.stopPropagation(); // 阻止触发编辑弹窗
-					if (confirm(`⚠️ 确定要彻底删除 [${item}] 吗？此操作不可撤销！`)) {
-						pushHistory();
-						if (Array.isArray(editorData[currentTab])) {
-							const idx = editorData[currentTab].indexOf(item);
-							if (idx > -1) editorData[currentTab].splice(idx, 1);
-						} else {
-							delete editorData[currentTab][item];
-						}
-						saveToLocal(true);
-						renderList(); // 重新渲染列表
-					}
-				};
-			}
-			listDiv.appendChild(div);
-		});
+			const contentDiv = document.createElement('div');
+			contentDiv.className = 'folder-content';
+			contentDiv.style.display = displayStyle;
+            
+            // ... 后面的代码保持不变 ...
+			
+			// 让空文件夹也能接客
+			contentDiv.ondragover = window.handleDragOver;
+			contentDiv.ondrop = (e) => window.handleDrop(e, 'sidebar', folderName);
+
+			grouped[folderName].forEach(item => contentDiv.appendChild(createListItemDom(item)));
+			folderDiv.appendChild(contentDiv);
+			listDiv.appendChild(folderDiv);
+		}
+
+		// 渲染根目录
+		grouped[''].forEach(item => listDiv.appendChild(createListItemDom(item)));
 	}
+
+	// ✨ 文件夹标题的专属“吸星大法” (拖拽进去)
+	window.handleFolderDragOver = function(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); };
+	window.handleFolderDragLeave = function(e) { e.currentTarget.classList.remove('drag-over'); };
+	window.handleFolderDrop = function(e, folderName) {
+		e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+		if (!draggedEl) return;
+		const itemName = draggedEl.dataset.itemname;
+		if (editorData[currentTab][itemName]) editorData[currentTab][itemName]._folder = folderName;
+		saveSidebarOrder(); renderList();
+	};
+
+	// 终极修复：Drop 插入引擎
+	window.handleDrop = function(e, scope, forceFolder = null) {
+		e.preventDefault();
+		if (!draggedEl) return;
+		const target = e.currentTarget;
+		target.classList.remove('drag-over-top', 'drag-over-bottom');
+		let newFolder = '';
+
+		if (target === draggedEl) return;
+
+		if (target.classList.contains('list-item')) {
+			const rect = target.getBoundingClientRect();
+			const mid = rect.top + rect.height / 2;
+			const container = target.parentNode;
+			if (e.clientY < mid) container.insertBefore(draggedEl, target);
+			else container.insertBefore(draggedEl, target.nextSibling);
+			const targetFolderDiv = draggedEl.closest('.list-folder');
+			newFolder = targetFolderDiv ? targetFolderDiv.dataset.foldername : '';
+		} else if (target.classList.contains('folder-content')) {
+			target.appendChild(draggedEl); // 直接往空文件夹里面塞
+			newFolder = forceFolder || '';
+		} else {
+			target.appendChild(draggedEl); newFolder = '';
+		}
+		
+		if (scope === 'sidebar') {
+			const itemName = draggedEl.dataset.itemname;
+			if (editorData[currentTab][itemName]) {
+				if (newFolder) editorData[currentTab][itemName]._folder = newFolder;
+				else delete editorData[currentTab][itemName]._folder;
+			}
+			saveSidebarOrder(); renderList(); 
+		}
+	};
 
 	// ✨ 新增辅助函数：进入或退出资源分类
 	function enterResourceCategory(category) {
@@ -2859,7 +3363,7 @@ function renderList() {
 				<div class="modal-sub-title">普通攻击进阶配置</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:1"><label>攻击方式:</label><select id="edit-atk-type"><option value="ranged" ${data.atkType==='ranged'?'selected':''}>远程 (原地施法)</option><option value="melee" ${data.atkType==='melee'?'selected':''}>近战 (冲刺突脸)</option></select></div>
-					<div style="flex:1"><label>近战退回时间 (秒):</label><input id="edit-atk-return" type="number" step="0.1" value="${data.atkReturnDelay || 0.6}"></div>
+					<div style="flex:1"><label>近战分镜轴 (进/停/退 秒):</label><input id="edit-atk-return" type="text" value="${data.atkReturnDelay || '0.2/0.6/0.8'}" placeholder="如 0.2/0.6/0.8"></div>
                 </div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:2"><label>受击特效 (资源库):</label><select id="edit-atk-hiteff">${getMediaOpts(data.atkHitEffect)}</select></div>
@@ -2870,10 +3374,16 @@ function renderList() {
 					<input id="edit-atk-casttext" type="text" value="${data.atkCastText || '[使用者] 对 [目标] 发动了攻击！'}" placeholder="[使用者] 对 [目标] 挥出了致命一击！">
 				</div>
 
-				<div class="modal-sub-title">技能配置 <span style="color: #ff4444; cursor: pointer; font-size: 14px;" onclick="addSkillRow()">+ 添加技能</span></div>
+				<div class="modal-sub-title collapse-header" onclick="toggleCollapse('character-skills-container', this)">
+					<span><span class="collapse-icon">▼</span> 技能配置</span>
+					<span style="color: #ff4444; cursor: pointer; font-size: 14px; float: right;" onclick="event.stopPropagation(); addSkillRow()">+ 添加技能</span>
+				</div>
 				<div id="character-skills-container">${skillsHtml}</div>
 				
-				<div class="modal-sub-title" style="margin-top: 20px;">携带道具 (Inventory) <span style="color: #ffcc00; cursor: pointer; font-size: 14px;" onclick="addCharItemRow()">+ 添加道具</span></div>
+				<div class="modal-sub-title collapse-header" style="margin-top: 20px;" onclick="toggleCollapse('character-items-container', this)">
+					<span><span class="collapse-icon">▼</span> 携带道具 (Inventory)</span>
+					<span style="color: #ffcc00; cursor: pointer; font-size: 14px; float: right;" onclick="event.stopPropagation(); addCharItemRow()">+ 添加道具</span>
+				</div>
 				<div id="character-items-container">
                     ${(data.items || []).map(it => `
                         <div class="skill-row" style="display:flex; gap:10px; align-items:center;">
@@ -2884,7 +3394,10 @@ function renderList() {
                     `).join('')}
                 </div>
 
-				<div class="modal-sub-title" style="margin-top: 20px; color:#00bfff;">🛡️ 初始状态与被动 (Buffs) <span style="color: #ffcc00; cursor: pointer; font-size: 14px;" onclick="addCharBuffRow()">+ 挂载状态</span></div>
+				<div class="modal-sub-title collapse-header" style="margin-top: 20px; color:#00bfff;" onclick="toggleCollapse('character-buffs-container', this)">
+					<span><span class="collapse-icon">▼</span> 🛡️ 初始状态与被动 (Buffs)</span>
+					<span style="color: #ffcc00; cursor: pointer; font-size: 14px; float: right;" onclick="event.stopPropagation(); addCharBuffRow()">+ 挂载状态</span>
+				</div>
 				<div id="character-buffs-container">
                     ${(data.buffs || []).map(b => `
                         <div class="skill-row" style="display:flex; gap:10px; align-items:center;">
@@ -2977,7 +3490,7 @@ function renderList() {
 				<div class="modal-sub-title">普通攻击进阶配置</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:1"><label>攻击方式:</label><select id="edit-enemy-atk-type"><option value="ranged" ${data.atkType==='ranged'?'selected':''}>远程 (原地施法)</option><option value="melee" ${data.atkType==='melee'?'selected':''}>近战 (冲刺突脸)</option></select></div>
-					<div style="flex:1"><label>近战退回时间 (秒):</label><input id="edit-enemy-atk-return" type="number" step="0.1" value="${data.atkReturnDelay || 0.6}"></div>
+					<div style="flex:1"><label>近战分镜轴 (进/停/退 秒):</label><input id="edit-enemy-atk-return" type="text" value="${data.atkReturnDelay || '0.2/0.6/0.8'}" placeholder="如 0.2/0.6/0.8"></div>
 				</div>
 				<div class="modal-form-group" style="display:flex; gap:10px;">
 					<div style="flex:2"><label>受击特效 (资源库):</label><select id="edit-enemy-atk-hiteff">${getMediaOpts(data.atkHitEffect)}</select></div>
@@ -2997,7 +3510,10 @@ function renderList() {
                     <input type="text" id="edit-enemy-atk-qte-val" value="${data.atkQteVal || '0.3/0.1'}" placeholder="例如: 0.3/0.1 (触发时间/容差秒数)" style="display:${data.atkQteEnable ? 'block' : 'none'}; margin-top:5px;">
                 </div>
 
-				<div class="modal-sub-title">技能配置 <span style="color: #ff4444; cursor: pointer; font-size: 14px;" onclick="addEnemySkillRow()">+ 添加技能</span></div>
+				<div class="modal-sub-title collapse-header" onclick="toggleCollapse('enemy-skills-container', this)">
+					<span><span class="collapse-icon">▼</span> 技能配置</span>
+					<span style="color: #ff4444; cursor: pointer; font-size: 14px; float: right;" onclick="event.stopPropagation(); addEnemySkillRow()">+ 添加技能</span>
+				</div>
 				<div id="enemy-skills-container">${skillsHtml}</div>
 			`;
 		}else if (type === 'skill') {
@@ -3007,7 +3523,7 @@ function renderList() {
 				<div class="modal-form-group"><label style="color:#ff4444;">释放时触发音效 (SFX):</label><select id="edit-skill-sfx">${getAudioOpts(data.sfx)}</select></div>
 				<div class="modal-form-group" style="display:flex; gap:10px; background:#111; padding:10px; border:1px solid #444;">
 					<div style="flex:1"><label>技能方式:</label><select id="edit-skill-type"><option value="ranged" ${data.skillType==='ranged'?'selected':''}>远程</option><option value="melee" ${data.skillType==='melee'?'selected':''}>近战突脸</option></select></div>
-					<div style="flex:1"><label>近战退回时间 (秒):</label><input id="edit-skill-return" type="number" step="0.1" value="${data.returnDelay || 0.6}"></div>
+					<div style="flex:1"><label>近战分镜轴 (进/停/退 秒):</label><input id="edit-skill-return" type="text" value="${data.returnDelay || '0.2/0.6/0.8'}" placeholder="如 0.2/0.6/0.8"></div>
 				</div>
 				<div class="modal-form-group" style="display:flex; gap:10px; background:#111; padding:10px; border:1px solid #444;">
 					<div style="flex:2"><label style="color:#00bfff;">受击专属特效 (资源库):</label><select id="edit-skill-hiteff">${getMediaOpts(data.hitEffect)}</select></div>
@@ -3041,12 +3557,27 @@ function renderList() {
 				<div class="modal-form-group" style="margin-bottom: 0;"><label>背景介绍:</label><textarea id="edit-desc" rows="2">${data.desc}</textarea></div>
 			`;
 		} else if (type === 'effect') {
-			if (!editorData.effect[itemName]) editorData.effect[itemName] = { type: 'damage_single', value: 0, description: '' };
-			const data = editorData.effect[itemName];
-			html = `
-				<div class="modal-form-group"><label>效果类型:</label><select id="edit-eff-type"><option value="damage_single" ${data.type==='damage_single'?'selected':''}>单体伤害</option><option value="damage_all" ${data.type==='damage_all'?'selected':''}>群体伤害</option><option value="heal_hp" ${['heal_hp', 'heal_single'].includes(data.type)?'selected':''}>恢复生命值 (HP)</option><option value="recover_mp" ${data.type==='recover_mp'?'selected':''}>恢复魔法值 (MP)</option><option value="recover_ap" ${data.type==='recover_ap'?'selected':''}>增加行动点 (AP)</option></select></div>
-				<div class="modal-form-group"><label>基础数值:</label><input id="edit-eff-value" type="text" value="${data.value}" placeholder="单段500，多段如 200/300"></div>
-			`;
+    if (!editorData.effect[itemName]) editorData.effect[itemName] = { type: 'damage_single', value: 0, description: '' };
+    const data = editorData.effect[itemName];
+    html = `
+        <div class="modal-form-group">
+            <label>效果类型:</label>
+            <select id="edit-eff-type">
+                <option value="damage_single" ${data.type==='damage_single'?'selected':''}>单体伤害 (数值)</option>
+                <option value="damage_all" ${data.type==='damage_all'?'selected':''}>群体伤害 (数值)</option>
+                <option value="heal_hp" ${['heal_hp', 'heal_single'].includes(data.type)?'selected':''}>恢复生命值 (HP)</option>
+                <option value="recover_mp" ${data.type==='recover_mp'?'selected':''}>恢复魔法值 (MP)</option>
+                <option value="recover_ap" ${data.type==='recover_ap'?'selected':''}>恢复常规 AP (不超过固定上限)</option>
+                <option value="add_extra_ap" ${data.type==='add_extra_ap'?'selected':''}>增加临时额外 AP (无视并突破上限)</option>
+                <option value="buff_atk" ${data.type==='buff_atk'?'selected':''}>攻击力修正倍率 (常驻/限时状态属性)</option>
+                <option value="add_buff" ${data.type==='add_buff'?'selected':''}>附加其他联动状态 (连环Buff套娃)</option>
+            </select>
+        </div>
+        <div class="modal-form-group">
+            <label>基础数值 / 状态参数:</label>
+            <input id="edit-eff-value" type="text" value="${data.value}" placeholder="伤害填数值；若选联动状态，填: 状态名/回合数 (如 激怒/2)">
+        </div>
+    `;
 		} else if (type === 'buff') {
 			if (!editorData.buff[itemName]) editorData.buff[itemName] = { trigger: 'onQteSuccess', effects: [], anim: '', desc: '' };
 			const data = editorData.buff[itemName];
@@ -3073,7 +3604,10 @@ function renderList() {
 						<option value="onQteSuccess_Turn" ${data.trigger==='onQteSuccess_Turn'?'selected':''}>完美闪避时·每回合 (敌方回合全程无伤)</option>
 					</select>
 				</div>
-				<div class="modal-sub-title">触发效果叠加 (可多选) <span style="color:#00bfff; cursor:pointer; float:right;" onclick="addBuffEffectRow()">+ 叠加效果</span></div>
+				<div class="modal-sub-title collapse-header" onclick="toggleCollapse('buff-effects-container', this)">
+					<span><span class="collapse-icon">▼</span> 触发效果叠加 (可多选)</span>
+					<span style="color:#00bfff; cursor:pointer; float:right;" onclick="event.stopPropagation(); addBuffEffectRow()">+ 叠加效果</span>
+				</div>
                 <div id="buff-effects-container" style="border:1px solid #444; padding:10px; background:#111; margin-bottom:15px;">${effHtml}</div>
 				
 				<div class="modal-form-group">
@@ -3098,30 +3632,71 @@ function renderList() {
 			`;
 		} else if (type === 'level') {
 			const data = editorData.level[itemName];
+			// 初始化默认的评级数据 (防空)
+			const ranks = data.ranks || {
+				S: { hp: 90, turns: 3, combo: '', ap: '', dodgeHit: '', dodgeAction: '', dodgeTurn: '' },
+				A: { hp: 60, turns: 5, combo: '', ap: '', dodgeHit: '', dodgeAction: '', dodgeTurn: '' },
+				B: { hp: 30, turns: 8, combo: '', ap: '', dodgeHit: '', dodgeAction: '', dodgeTurn: '' }
+			};
+
+			const createRankInputs = (rank, rData) => `
+				<div style="background:rgba(255,255,255,0.05); padding:10px; border:1px solid #444; border-left:3px solid ${rank==='S'?'#ffd700':(rank==='A'?'#ff4444':'#00bfff')}; margin-bottom:10px;">
+					<strong style="color:${rank==='S'?'#ffd700':(rank==='A'?'#ff4444':'#00bfff')}; font-size:18px;">${rank} 级评价条件 (满足全部填写条件即达成，留空则不校验)</strong>
+					<div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:8px;">
+						<div style="flex: 1 1 30%;"><label style="font-size:12px;">HP ≥ (%)</label><input type="number" id="rank-${rank}-hp" value="${rData.hp||''}" placeholder="如 90"></div>
+						<div style="flex: 1 1 30%;"><label style="font-size:12px;">回合数 ≤</label><input type="number" id="rank-${rank}-turns" value="${rData.turns||''}" placeholder="如 3"></div>
+						<div style="flex: 1 1 30%;"><label style="font-size:12px;">消耗 AP ≤</label><input type="number" id="rank-${rank}-ap" value="${rData.ap||''}" placeholder="如 10"></div>
+						<div style="flex: 1 1 30%;"><label style="font-size:12px;">连击数 ≥</label><input type="number" id="rank-${rank}-combo" value="${rData.combo||''}"></div>
+						<div style="flex: 1 1 30%;"><label style="font-size:12px;">闪避(单) ≥</label><input type="number" id="rank-${rank}-dodgeHit" value="${rData.dodgeHit||''}"></div>
+						<div style="flex: 1 1 30%;"><label style="font-size:12px;">优秀(组) ≥</label><input type="number" id="rank-${rank}-dodgeAction" value="${rData.dodgeAction||''}"></div>
+						<div style="flex: 1 1 30%;"><label style="font-size:12px;">完美(回合) ≥</label><input type="number" id="rank-${rank}-dodgeTurn" value="${rData.dodgeTurn||''}"></div>
+					</div>
+				</div>
+			`;
+
 			html = `
 				<div class="modal-form-group"><label>出战玩家:</label><input type="text" value="${data.player}" disabled style="background:#333; color:#aaa;"></div>
 				<div class="modal-form-group" style="display:flex; gap:10px;"><div style="flex:1"><label>关卡背景:</label><input type="text" value="${data.background || '无'}" disabled style="background:#333; color:#aaa;"></div><div style="flex:1"><label>关卡BGM:</label><input type="text" value="${data.bgm || '无'}" disabled style="background:#333; color:#aaa;"></div></div>
-				<div class="modal-form-group"><label>敌人池阵容 (按出场顺序):</label><textarea disabled rows="4" style="background:#333; color:#aaa;">${data.enemies.join('\n')}</textarea></div>
-				<div style="margin-top: 20px;"><button onclick="loadLevelToWorkspace('${itemName}')" style="background:#00b400; color:white; border:none; padding:12px; width:100%; cursor:pointer; font-weight:bold;">📥 载入此关卡</button></div>
+				
+				<div class="modal-sub-title" style="color:#00ffff;">🏆 通关判定条件设定</div>
+				<div style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+					${createRankInputs('S', ranks.S)}
+					${createRankInputs('A', ranks.A)}
+					${createRankInputs('B', ranks.B)}
+				</div>
+				<div style="color:rgba(255,255,255,0.5); font-size:12px; margin-top:5px;">* 如果未达到 B 级，将自动结算为 C 级。</div>
+
+				<div style="margin-top: 20px; display:flex; gap:10px;">
+					<button onclick="loadLevelToWorkspace('${itemName}')" style="flex:2; background:#00b400; color:white; border:none; padding:12px; cursor:pointer; font-weight:bold;">📥 载入此关卡</button>
+				</div>
 			`;
-			document.getElementById('modal-save-btn').style.display = 'none';
+			document.getElementById('modal-save-btn').style.display = 'inline-block'; // 恢复保存按钮
 		} else if (type === 'level_layout') {
 			const lvl = editorData.level[itemName];
 			// 如果没有排版数据，给个默认值
-			const l = lvl.layout || { pScale: 100, pX: 0, pY: 0, eScale: 100, eX: 0, eY: 0 };
+			const l = lvl.layout || { pScale: 100, pX: 0, pY: 0, eScale: 100, eX: 0, eY: 0, vfxPlayerX: 0, vfxPlayerY: 0, vfxEnemyX: 0, vfxEnemyY: 0 };
 			
 			html = `
 				<div class="modal-sub-title" style="color:#00bfff;">👤 玩家立绘调整 (以左下角为基准)</div>
 				<div style="display:flex; gap:10px; margin-bottom:10px;">
-					<div style="flex:1"><label>缩放大小 (%):</label><input type="number" id="ll-pscale" value="${l.pScale}" oninput="updateLayoutPreview()"></div>
-					<div style="flex:1"><label>水平偏移 (X px):</label><input type="number" id="ll-px" value="${l.pX}" oninput="updateLayoutPreview()"></div>
-					<div style="flex:1"><label>垂直偏移 (Y px):</label><input type="number" id="ll-py" value="${l.pY}" oninput="updateLayoutPreview()"></div>
+					<div style="flex:1"><label>缩放大小 (%):</label><input type="number" id="ll-pscale" value="${l.pScale || 100}" oninput="updateLayoutPreview()"></div>
+					<div style="flex:1"><label>水平偏移 (X px):</label><input type="number" id="ll-px" value="${l.pX || 0}" oninput="updateLayoutPreview()"></div>
+					<div style="flex:1"><label>垂直偏移 (Y px):</label><input type="number" id="ll-py" value="${l.pY || 0}" oninput="updateLayoutPreview()"></div>
 				</div>
+                <div style="display:flex; gap:10px; margin-bottom:10px; background:rgba(0,191,255,0.1); padding:8px; border-radius:4px; border:1px dashed #00bfff;">
+					<div style="flex:1"><label>✨ 特效/跳字水平微调 (X):</label><input type="number" id="ll-vfx-px" value="${l.vfxPlayerX || 0}" placeholder="负数向左"></div>
+					<div style="flex:1"><label>✨ 特效/跳字垂直微调 (Y):</label><input type="number" id="ll-vfx-py" value="${l.vfxPlayerY || 0}" placeholder="负数向上"></div>
+				</div>
+
 				<div class="modal-sub-title" style="color:#ff4444;">👾 敌方阵型调整 (以右上角为基准)</div>
 				<div style="display:flex; gap:10px; margin-bottom:10px;">
-					<div style="flex:1"><label>缩放大小 (%):</label><input type="number" id="ll-escale" value="${l.eScale}" oninput="updateLayoutPreview()"></div>
-					<div style="flex:1"><label>水平偏移 (X px):</label><input type="number" id="ll-ex" value="${l.eX}" oninput="updateLayoutPreview()"></div>
-					<div style="flex:1"><label>垂直偏移 (Y px):</label><input type="number" id="ll-ey" value="${l.eY}" oninput="updateLayoutPreview()"></div>
+					<div style="flex:1"><label>缩放大小 (%):</label><input type="number" id="ll-escale" value="${l.eScale || 100}" oninput="updateLayoutPreview()"></div>
+					<div style="flex:1"><label>水平偏移 (X px):</label><input type="number" id="ll-ex" value="${l.eX || 0}" oninput="updateLayoutPreview()"></div>
+					<div style="flex:1"><label>垂直偏移 (Y px):</label><input type="number" id="ll-ey" value="${l.eY || 0}" oninput="updateLayoutPreview()"></div>
+				</div>
+                <div style="display:flex; gap:10px; margin-bottom:10px; background:rgba(255,68,68,0.1); padding:8px; border-radius:4px; border:1px dashed #ff4444;">
+					<div style="flex:1"><label>✨ 特效/跳字水平微调 (X):</label><input type="number" id="ll-vfx-ex" value="${l.vfxEnemyX || 0}" placeholder="负数向左"></div>
+					<div style="flex:1"><label>✨ 特效/跳字垂直微调 (Y):</label><input type="number" id="ll-vfx-ey" value="${l.vfxEnemyY || 0}" placeholder="负数向上"></div>
 				</div>
 				
 				<div class="modal-sub-title">实时边界预览框</div>
@@ -3226,44 +3801,65 @@ function renderList() {
                     <div style="flex:1"><label style="color:#00ff00;">持续回合:</label><input id="edit-item-buff-dur" type="number" value="${data.buffDuration !== undefined ? data.buffDuration : 3}" title="-1为永久"></div>
                     <div style="flex:1"><label style="color:#00ff00;">状态加给谁:</label><select id="edit-item-buff-target"><option value="target" ${data.buffTarget !== 'self' ? 'selected' : ''}>使用目标</option><option value="self" ${data.buffTarget === 'self' ? 'selected' : ''}>使用者自身</option></select></div>
                 </div>
-                <div class="modal-sub-title">触发效果叠加 (可多选) <span style="color:#00bfff; cursor:pointer; float:right;" onclick="addItemEffectRow()">+ 叠加效果</span></div>
+                <div class="modal-sub-title collapse-header" onclick="toggleCollapse('item-effects-container', this)">
+					<span><span class="collapse-icon">▼</span> 触发效果叠加 (可多选)</span>
+					<span style="color:#00bfff; cursor:pointer; float:right;" onclick="event.stopPropagation(); addItemEffectRow()">+ 叠加效果</span>
+				</div>
                 <div id="item-effects-container" style="border:1px solid #444; padding:10px; background:#111;">${effHtml}</div>
                 <div class="modal-form-group" style="margin-top:15px;"><label>道具说明:</label><textarea id="edit-item-desc" rows="2">${data.desc || ''}</textarea></div>
             `;
         }
 		
-		// ✨ 为常规实体统一添加无感知重命名框
+		// ✨ 为常规实体统一添加无感知重命名框与【文件夹归属】
 		if (['character', 'enemy', 'skill', 'effect', 'camera', 'buff', 'item'].includes(type)) {
 			const isBuiltInCam = type === 'camera' && ['玩家机位', '操作机位', '瞄准机位', '敌方机位', '全局机位', '默认攻击特写', '地震抖动特效'].includes(itemName);
 			const disableAttr = isBuiltInCam ? 'disabled title="内置机位不可改名"' : '';
+            
+			// ✨ 文件夹设置框
+			const folderHtml = `
+				<div class="modal-form-group" style="background: rgba(255, 215, 0, 0.05); padding: 10px; border: 1px dashed #ffd700; border-radius: 4px; margin-bottom: 15px;">
+					<label style="color:#ffd700; font-weight:bold; margin-bottom:5px; display:block;">📁 归属文件夹 (留空则在外层，填入名字即建夹):</label>
+					<input id="edit-item-folder" type="text" value="${(editorData[type][itemName] && editorData[type][itemName]._folder) || ''}" placeholder="例如：火系魔法、第一章敌人...">
+				</div>
+			`;
+			// ✨ 重命名设置框
 			const renameHtml = `
 				<div class="modal-form-group" style="background: rgba(0, 191, 255, 0.1); padding: 10px; border: 1px solid #00bfff; border-radius: 4px; margin-bottom: 15px;">
 					<label style="color:#00bfff; font-weight:bold; margin-bottom:5px; display:block;">📝 实体名称 (修改后将自动同步关联):</label>
 					<input id="edit-item-name" type="text" value="${itemName}" style="font-size: 18px; font-weight: bold; color: #fff; background: #000;" ${disableAttr}>
 				</div>
 			`;
-			html = renameHtml + html; 
+			
+			// ✨ 终极拼接：将重命名、文件夹和下方的主体表单合并
+			html = renameHtml + folderHtml + html; 
 		}
 
 		content.innerHTML = html;
 		document.getElementById('editor-modal').style.display = 'flex';
+		upgradeSelectsToSearchable(content);
 	}
+	
 	
 	function addSkillRow() {
 		const container = document.getElementById('character-skills-container');
 		const row = document.createElement('div');
-		row.className = 'skill-row';
+        // ✨ 加入拖拽相关的 class 和 HTML5 原生事件
+		row.className = 'skill-row draggable-item';
+		row.draggable = true;
+		row.ondragstart = window.handleDragStart; row.ondragend = window.handleDragEnd;
+		row.ondragover = window.handleDragOver; row.ondrop = (e) => window.handleDrop(e, 'modal');
+		row.ondragleave = (e) => e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+
 		const playerSkills = Object.keys(editorData.skill).filter(s => editorData.skill[s].userType === '玩家' || editorData.skill[s].userType === '通用');
         const options = playerSkills.map(s => `<option>${s}</option>`).join('');
         
-        // ✨ 新增镜头下拉框
         const camOptions = `<option value="">-- 默认攻击特写 --</option>` + 
             Object.keys(editorData.camera).map(c => `<option value="${c}">${c}</option>`).join('');
 
-        // 🛠️ 辅助函数
         const getMediaOpts = () => `<option value="">-- 无 (None) --</option>` + Object.keys(editorData.resource).filter(k => ['image', 'video'].includes(editorData.resource[k].type)).map(c => `<option value="${c}">${c}</option>`).join('');
 
 		row.innerHTML = `
+            <div class="drag-handle" title="按住拖拽排序">☰ 拖拽排序</div>
 			<span class="remove-btn" onclick="this.parentElement.remove()">X</span>
             <div style="display:flex; gap:10px; margin-bottom: 10px;">
                 <div class="modal-form-group" style="flex:1; margin-bottom: 0;">
@@ -3285,57 +3881,118 @@ function renderList() {
             </div>
 		`;
 		container.appendChild(row);
+        if (typeof upgradeSelectsToSearchable === 'function') upgradeSelectsToSearchable(row); // 兼容搜索框优化
 		document.getElementById('modal-content').scrollTop = document.getElementById('modal-content').scrollHeight;
 	}
 	
 	function addCharItemRow() {
 		const container = document.getElementById('character-items-container');
 		const row = document.createElement('div');
-		row.className = 'skill-row'; row.style.display = 'flex'; row.style.gap = '10px'; row.style.alignItems = 'center';
+		row.className = 'skill-row draggable-item'; 
+        row.style.display = 'flex'; row.style.gap = '10px'; row.style.alignItems = 'center';
+        
+        // ✨ 加入拖拽事件
+        row.draggable = true;
+		row.ondragstart = window.handleDragStart; row.ondragend = window.handleDragEnd;
+		row.ondragover = window.handleDragOver; row.ondrop = (e) => window.handleDrop(e, 'modal');
+		row.ondragleave = (e) => e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+
         const options = Object.keys(editorData.item).map(i => `<option>${i}</option>`).join('');
-        row.innerHTML = `<span class="remove-btn" onclick="this.parentElement.remove()">X</span><div style="flex:2" class="modal-form-group" style="margin-bottom:0;"><label>道具名称:</label><select class="char-item-select">${options}</select></div><div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>携带数量:</label><input type="number" class="char-item-count" value="1"></div>`;
+        row.innerHTML = `
+            <div class="drag-handle" title="按住拖拽排序">☰ 拖拽排序</div>
+            <span class="remove-btn" style="position:relative; right:0; top:0;" onclick="this.parentElement.remove()">X</span>
+            <div style="flex:2" class="modal-form-group" style="margin-bottom:0;"><label>道具名称:</label><select class="char-item-select">${options}</select></div>
+            <div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>携带数量:</label><input type="number" class="char-item-count" value="1"></div>
+        `;
         container.appendChild(row);
+        if (typeof upgradeSelectsToSearchable === 'function') upgradeSelectsToSearchable(row);
 	}
+
 	function addCharBuffRow() {
 		const container = document.getElementById('character-buffs-container');
 		const row = document.createElement('div');
-		row.className = 'skill-row'; row.style.display = 'flex'; row.style.gap = '10px'; row.style.alignItems = 'center';
+		row.className = 'skill-row draggable-item'; 
+        row.style.display = 'flex'; row.style.gap = '10px'; row.style.alignItems = 'center';
+        
+        // ✨ 加入拖拽事件
+        row.draggable = true;
+		row.ondragstart = window.handleDragStart; row.ondragend = window.handleDragEnd;
+		row.ondragover = window.handleDragOver; row.ondrop = (e) => window.handleDrop(e, 'modal');
+		row.ondragleave = (e) => e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+
         const options = Object.keys(editorData.buff || {}).map(i => `<option>${i}</option>`).join('');
-        row.innerHTML = `<span class="remove-btn" onclick="this.parentElement.remove()">X</span><div style="flex:2" class="modal-form-group" style="margin-bottom:0;"><label>状态名称:</label><select class="char-buff-select">${options}</select></div><div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>持续回合:</label><input type="number" class="char-buff-duration" value="-1" placeholder="-1为永久"></div>`;
+        row.innerHTML = `
+            <div class="drag-handle" title="按住拖拽排序">☰ 拖拽排序</div>
+            <span class="remove-btn" style="position:relative; right:0; top:0;" onclick="this.parentElement.remove()">X</span>
+            <div style="flex:2" class="modal-form-group" style="margin-bottom:0;"><label>状态名称:</label><select class="char-buff-select">${options}</select></div>
+            <div style="flex:1" class="modal-form-group" style="margin-bottom:0;"><label>持续回合:</label><input type="number" class="char-buff-duration" value="-1" placeholder="-1为永久"></div>
+        `;
         container.appendChild(row);
+        if (typeof upgradeSelectsToSearchable === 'function') upgradeSelectsToSearchable(row);
 	}
+
 	function addBuffEffectRow() {
         const container = document.getElementById('buff-effects-container');
         const div = document.createElement('div');
+        div.className = 'draggable-item';
         div.style = 'display:flex; gap:10px; margin-bottom:5px; align-items:center;';
-        div.innerHTML = `<select class="buff-eff-select" style="flex:1;">${Object.keys(editorData.effect).map(e => `<option>${e}</option>`).join('')}</select><span style="color:red; cursor:pointer; font-weight:bold;" onclick="this.parentElement.remove()">X</span>`;
+        
+        // ✨ 加入拖拽事件
+        div.draggable = true;
+		div.ondragstart = window.handleDragStart; div.ondragend = window.handleDragEnd;
+		div.ondragover = window.handleDragOver; div.ondrop = (e) => window.handleDrop(e, 'modal');
+		div.ondragleave = (e) => e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+
+        div.innerHTML = `
+            <div class="drag-handle" title="按住拖拽排序" style="padding: 2px 8px; font-size:12px;">☰</div>
+            <select class="buff-eff-select" style="flex:1;">${Object.keys(editorData.effect).map(e => `<option>${e}</option>`).join('')}</select>
+            <span style="color:red; cursor:pointer; font-weight:bold; margin-left:5px;" onclick="this.parentElement.remove()">X</span>
+        `;
         container.appendChild(div);
+        if (typeof upgradeSelectsToSearchable === 'function') upgradeSelectsToSearchable(div);
     }
+
     function addItemEffectRow() {
         const container = document.getElementById('item-effects-container');
         const div = document.createElement('div');
+        div.className = 'draggable-item';
         div.style = 'display:flex; gap:10px; margin-bottom:5px; align-items:center;';
-        div.innerHTML = `<select class="item-eff-select" style="flex:1;">${Object.keys(editorData.effect).map(e => `<option>${e}</option>`).join('')}</select><span style="color:red; cursor:pointer; font-weight:bold;" onclick="this.parentElement.remove()">X</span>`;
+        
+        // ✨ 加入拖拽事件
+        div.draggable = true;
+		div.ondragstart = window.handleDragStart; div.ondragend = window.handleDragEnd;
+		div.ondragover = window.handleDragOver; div.ondrop = (e) => window.handleDrop(e, 'modal');
+		div.ondragleave = (e) => e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+
+        div.innerHTML = `
+            <div class="drag-handle" title="按住拖拽排序" style="padding: 2px 8px; font-size:12px;">☰</div>
+            <select class="item-eff-select" style="flex:1;">${Object.keys(editorData.effect).map(e => `<option>${e}</option>`).join('')}</select>
+            <span style="color:red; cursor:pointer; font-weight:bold; margin-left:5px;" onclick="this.parentElement.remove()">X</span>
+        `;
         container.appendChild(div);
+        if (typeof upgradeSelectsToSearchable === 'function') upgradeSelectsToSearchable(div);
     }
 	
 	function addEnemySkillRow(skillName = '', weight = 10) {
         const container = document.getElementById('enemy-skills-container');
         const row = document.createElement('div');
-        row.className = 'skill-row';
+        
+        // ✨ 加入拖拽事件
+        row.className = 'skill-row draggable-item';
+        row.draggable = true;
+		row.ondragstart = window.handleDragStart; row.ondragend = window.handleDragEnd;
+		row.ondragover = window.handleDragOver; row.ondrop = (e) => window.handleDrop(e, 'modal');
+		row.ondragleave = (e) => e.currentTarget.classList.remove('drag-over-top', 'drag-over-bottom');
+
         const enemySkills = Object.keys(editorData.skill).filter(s => editorData.skill[s].userType === '敌人' || editorData.skill[s].userType === '通用');
         const options = enemySkills.map(s => `<option ${s === skillName ? 'selected' : ''}>${s}</option>`).join('');
-        
-        // ✨ 新增镜头下拉框
-        const camOptions = `<option value="">-- 默认/技能自带 --</option>` + 
-            Object.keys(editorData.camera).map(c => `<option value="${c}">${c}</option>`).join('');
-
-        // 🛠️ 辅助函数
+        const camOptions = `<option value="">-- 默认/技能自带 --</option>` + Object.keys(editorData.camera).map(c => `<option value="${c}">${c}</option>`).join('');
         const getMediaOpts = () => `<option value="">-- 无 (None) --</option>` + Object.keys(editorData.resource).filter(k => ['image', 'video'].includes(editorData.resource[k].type)).map(c => `<option value="${c}">${c}</option>`).join('');
 
         row.innerHTML = `
+            <div class="drag-handle" title="按住拖拽排序">☰ 拖拽排序</div>
             <span class="remove-btn" onclick="this.parentElement.remove()">X</span>
-            <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <div style="display:flex; gap:10px; margin-bottom:10px; margin-top: 10px;">
                 <div style="flex:2" class="modal-form-group" style="margin-bottom:0;">
                     <label>选择技能:</label>
                     <select class="enemy-skill-select">${options}</select>
@@ -3357,6 +4014,7 @@ function renderList() {
             </div>
         `;
         container.appendChild(row);
+        if (typeof upgradeSelectsToSearchable === 'function') upgradeSelectsToSearchable(row);
     }
 	// 补全丢失的：打开选择出战实体的面板
 	function openSelectionModal(type, index = -1) {
@@ -3414,7 +4072,29 @@ function renderList() {
 				eScale: parseInt(document.getElementById('ll-escale').value) || 100,
 				eX: parseInt(document.getElementById('ll-ex').value) || 0,
 				eY: parseInt(document.getElementById('ll-ey').value) || 0,
+                // ✨ 存储你自定义的特效偏移量
+				vfxPlayerX: parseInt(document.getElementById('ll-vfx-px').value) || 0,
+				vfxPlayerY: parseInt(document.getElementById('ll-vfx-py').value) || 0,
+				vfxEnemyX: parseInt(document.getElementById('ll-vfx-ex').value) || 0,
+				vfxEnemyY: parseInt(document.getElementById('ll-vfx-ey').value) || 0,
 			};
+			closeModal(); saveToLocal(true); return;
+		}
+		
+		if (currentEditingType === 'level') {
+			const lvl = editorData.level[currentEditingItem];
+			if (!lvl.ranks) lvl.ranks = {};
+			['S', 'A', 'B'].forEach(rank => {
+				lvl.ranks[rank] = {
+					hp: document.getElementById(`rank-${rank}-hp`).value,
+					turns: document.getElementById(`rank-${rank}-turns`).value,
+					combo: document.getElementById(`rank-${rank}-combo`).value,
+					ap: document.getElementById(`rank-${rank}-ap`).value,
+					dodgeHit: document.getElementById(`rank-${rank}-dodgeHit`).value,
+					dodgeAction: document.getElementById(`rank-${rank}-dodgeAction`).value,
+					dodgeTurn: document.getElementById(`rank-${rank}-dodgeTurn`).value
+				};
+			});
 			closeModal(); saveToLocal(true); return;
 		}
 
@@ -3622,6 +4302,8 @@ function renderList() {
 
 		// ✨✨✨ 终极拦截：处理重命名与全局级联同步 ✨✨✨
 		if (['character', 'enemy', 'skill', 'effect', 'camera', 'buff', 'item'].includes(currentEditingType)) {
+		const folderInput = document.getElementById('edit-item-folder');
+			if (folderInput) editorData[currentEditingType][currentEditingItem]._folder = folderInput.value.trim();
 			const nameInput = document.getElementById('edit-item-name');
 			if (nameInput && !nameInput.disabled) {
 				const newName = nameInput.value.trim();
@@ -3712,6 +4394,54 @@ function renderList() {
 	}
 
 	function closeModal() { document.getElementById('editor-modal').style.display = 'none'; }
+	
+	// 🌟 黑科技注入：将弹窗内所有冗长的下拉框，自动升级为带搜索的输入框 (Datalist)！
+	function upgradeSelectsToSearchable(container) {
+		const selects = container.querySelectorAll('select');
+		selects.forEach(sel => {
+			// 白名单：排除掉那些只有固定几个选项的“底层逻辑类”下拉框
+			const ignoreIds = ['edit-eff-type', 'edit-atk-type', 'edit-skill-type', 'edit-userType', 'edit-target', 'edit-buff-trigger', 'sys-read-mode', 'edit-cloud-interval', 'edit-enemy-ai'];
+			if (ignoreIds.includes(sel.id)) return;
+			
+			// 生成唯一的 Datalist ID
+			const listId = 'dl-' + Math.random().toString(36).substr(2, 9);
+			const datalist = document.createElement('datalist');
+			datalist.id = listId;
+			
+			// 把原下拉框的选项，无损转移进 datalist 中
+			Array.from(sel.options).forEach(opt => {
+				const newOpt = document.createElement('option');
+				newOpt.value = opt.value; // 真正的值
+				if (opt.text !== opt.value) newOpt.label = opt.text; // 辅助显示文字
+				datalist.appendChild(newOpt);
+			});
+			
+			// 创建全新的智能输入框
+			const input = document.createElement('input');
+			input.setAttribute('list', listId);
+			input.value = sel.value; // 保留当前已选定项
+			input.className = sel.className;
+			if (sel.id) input.id = sel.id;
+			
+			// 完美继承原下拉框的内联样式 (如 flex 布局、定制的边框颜色等)
+			input.style.cssText = sel.style.cssText;
+			input.placeholder = "🔍 点击展开或打字搜索...";
+			
+			// 事件接管
+			if (sel.hasAttribute('onchange')) input.setAttribute('onchange', sel.getAttribute('onchange'));
+			input.onchange = sel.onchange;
+
+			// 移花接木，替换 DOM
+			sel.parentNode.insertBefore(input, sel);
+			sel.parentNode.insertBefore(datalist, input);
+			sel.remove();
+			
+			// UX优化 1：点击时自动全选文本，可以直接打字覆盖
+			input.addEventListener('focus', () => input.select());
+            // UX优化 2：双击直接清空内容
+            input.addEventListener('dblclick', () => { input.value = ''; });
+		});
+	}
 
 
 	/* ----------------------------------
@@ -3808,6 +4538,7 @@ function fillEnemyField(isMidBattle = false) {
                 </div>
             `;
         });
+		updateBattleInfoUI();
     }
 
 function enterTestMode() {
@@ -3828,7 +4559,10 @@ function enterTestMode() {
 	// ✨✨✨ 排版矩阵注入完毕 ✨✨✨
 
 	battleRuntime.playerHP = parseInt(playerStats.hp);
-	battleRuntime.playerMP = parseInt(playerStats.mp); // ✨ 载入 MP
+	battleRuntime.playerMP = parseInt(playerStats.mp); 
+	battleRuntime.currentTurn = 1; // 初始为第 1 回合
+	updateBattleInfoUI();
+	updatePlayerBuffsUI();
 	battleRuntime.playerAP = parseInt(playerStats.ap || 3); // ✨ 战斗开始满 AP
     battleRuntime.playerMaxAP = battleRuntime.playerAP; // 记下最大值
 	battleRuntime.inventory = {};
@@ -3841,8 +4575,16 @@ function enterTestMode() {
 	battleRuntime.poolIndex = 0;
 	battleRuntime.field = [];
 	fillEnemyField(); // 填满前 5 个怪
-
-	// 渲染玩家 UI
+	
+	currentCombo = 0; 
+    currentComboDmg = 0; 
+    maxComboAchieved = 0; 
+	battleRuntime.totalDmgOut = 0;
+    battleRuntime.totalApSpent = 0;
+    battleRuntime.dodges_hit = 0;   // 单个闪避
+    battleRuntime.dodges_action = 0;// 优秀闪避 (一组)
+    battleRuntime.dodges_turn = 0;  // 完美闪避 (全回合)
+	battleRuntime.totalExecutions = 0; // ✨ 记录成功处刑的次数
 	const playerEl = document.getElementById('player');
 	const playerMediaHtml = renderMediaTag(playerStats.idleAnim); 
 	const shortName = activePlayer.split(' ')[0];
@@ -3926,6 +4668,7 @@ function enterTestMode() {
 
     // 等待 1.5 秒演出结束，正式进入菜单
     setTimeout(async () => {
+	    if (!isTestModeActive) return;
         let waitPromise = null;
         if (editorData.uiSfx && editorData.uiSfx.turnStartAnim) {
             // 1. 触发 CG，拿到 Promise 但先不 await
@@ -3976,8 +4719,18 @@ function enterTestMode() {
         
         // 查找并销毁可能卡在屏幕上的全屏大招CG
         document.querySelectorAll('#game-scene > div').forEach(el => {
-            if (el.style.zIndex === '150') el.remove();
+            if (el.style.zIndex === '150' || el.style.zIndex === '4000') el.remove();
         });
+
+        // ✨ 终极清理：彻底砸碎菜单和状态面板，防止下次进场时“诈尸”
+        const menuList = document.getElementById('menu-list');
+        if (menuList) menuList.innerHTML = '';
+        const infoPanel = document.getElementById('info-panel');
+        if (infoPanel) infoPanel.classList.remove('active');
+        const buffTooltip = document.getElementById('buff-tooltip');
+        if (buffTooltip) buffTooltip.style.opacity = 0;
+        
+        battleState = 'OFF'; // 彻底锁死状态机，拦截一切残留的键盘事件
 	}
 
 	const menuList = document.getElementById('menu-list');
@@ -4201,6 +4954,7 @@ function enterTestMode() {
 		const existing = targetBuffs.find(b => b.name === buffName);
 		if (existing) { existing.duration = duration; addLog(`🔄 [${targetName}] 的状态【${buffName}】已刷新！`); } 
 		else { targetBuffs.push({ name: buffName, duration: duration }); addLog(`🆙 [${targetName}] 获得了状态【${buffName}】！`); }
+		if (targetType === 'player') updatePlayerBuffsUI();
 	}
 
 	// 🌟 全能被动状态雷达与触发器 (双向打击版)
@@ -4217,6 +4971,18 @@ function enterTestMode() {
 			const buffDef = editorData.buff[pb.name];
 			if (buffDef && buffDef.trigger === hookName) {
 				devLog(`[被动系统] [${targetName}] 满足 [${hookName}]，触发: ${pb.name}`, 'sys');
+				if (targetType === 'player') {
+					const pBuffs = battleRuntime.playerBuffs || [];
+					const buffIdx = pBuffs.findIndex(b => b.name === pb.name);
+					if (buffIdx !== -1) {
+						const iconEl = document.getElementById(`ui-buff-${buffIdx}`);
+						if (iconEl) {
+							iconEl.classList.remove('flashing'); // 先拔掉旧动画
+							void iconEl.offsetWidth;             // 强迫浏览器重绘 (重置动画进度)
+							iconEl.classList.add('flashing');    // 再次赋予动画，实现连续闪烁！
+						}
+					}
+				}
 				if (buffDef.anim) spawnHitEffect(targetType === 'player' ? null : targetIdx, buffDef.anim, targetType === 'player');
 				
 				if (buffDef.cg) playFullscreenCG(buffDef.cg); 
@@ -4226,17 +4992,20 @@ function enterTestMode() {
 				if (buffDef.effectLink && effectsToTrigger.length === 0) effectsToTrigger.push(buffDef.effectLink);
 
 				// ✨ 循环触发所有效果
+				// ✨ 循环触发所有效果
 				effectsToTrigger.forEach(effName => {
 					if (editorData.effect[effName]) {
-						const eff = editorData.effect[effName]; const val = parseInt(eff.value);
+						const eff = editorData.effect[effName]; 
+                        const val = parseInt(eff.value);
 
-						if (['heal_hp', 'recover_mp', 'recover_ap', 'heal_single'].includes(eff.type)) {
+						if (['heal_hp', 'recover_mp', 'recover_ap', 'add_extra_ap', 'heal_single'].includes(eff.type)) {
 							let typeText = eff.type.includes('hp') ? 'HP' : (eff.type.includes('mp') ? 'MP' : 'AP');
 							addLog(`✨ [${targetName}] 的状态 [${pb.name}] 发动！恢复 ${val} 点 ${typeText}！`);
 							if (targetType === 'player') {
 								if (eff.type === 'heal_hp' || eff.type === 'heal_single') { battleRuntime.playerHP = Math.min(parseInt(editorData.character[activePlayer].hp), battleRuntime.playerHP + val); spawnFloatingText('player', val, 'heal_hp'); }
 								if (eff.type === 'recover_mp') { battleRuntime.playerMP = Math.min(parseInt(editorData.character[activePlayer].mp), battleRuntime.playerMP + val); spawnFloatingText('player', val, 'recover_mp'); }
-								if (eff.type === 'recover_ap') { battleRuntime.playerAP += val; spawnFloatingText('player', val, 'recover_ap'); }
+								if (eff.type === 'recover_ap') { battleRuntime.playerAP = Math.min(parseInt(editorData.character[activePlayer].ap||3), battleRuntime.playerAP + val); spawnFloatingText('player', val, 'recover_ap'); }
+								if (eff.type === 'add_extra_ap') { battleRuntime.playerAP += val; spawnFloatingText('player', val, 'recover_ap'); }
 								document.getElementById('player').style.filter = 'brightness(1.5) drop-shadow(0 0 20px #00bfff)'; setTimeout(() => document.getElementById('player').style.filter = '', 500);
 								updatePlayerStatusUI();
 							} else {
@@ -4253,11 +5022,55 @@ function enterTestMode() {
 								setEntitySprite(targetIdx, enemy.hp > 0 ? editorData.enemy[enemy.name].hitAnim : editorData.enemy[enemy.name].deathAnim, false); updateFieldState();
 							}
 						}
+                        // ✨ 新增：被动触发联动附加状态 (Buff 套娃)！
+                        else if (eff.type === 'add_buff') {
+                            const parts = String(eff.value).split('/');
+                            const bName = parts[0];
+                            const bDur = parseInt(parts[1]) || 1; // 默认 1 回合
+                            if (editorData.buff[bName]) {
+                                addLog(`💫 [${targetName}] 触发极意，附加联动状态【${bName}】！`);
+                                addBuff(targetType, targetIdx, bName, bDur);
+                                if (targetType === 'player') updatePlayerStatusUI();
+                            } else {
+                                devLog(`[系统警告] 试图附加的联动状态不存在: ${bName}`, 'warn');
+                            }
+                        }
 					}
 				}); // end forEach effect
 			}
 		});
 	}
+	
+	// 🌟 新增：动态读取实体的攻击力修正倍率 (遍历其挂载的所有 Buff)
+function getEntityAtkMulti(targetType, targetIdx = null) {
+    let multi = 1.0;
+    let buffs = [];
+    
+    if (targetType === 'player') {
+        buffs = battleRuntime.playerBuffs || [];
+    } else {
+        if (!battleRuntime.field[targetIdx] || battleRuntime.field[targetIdx].hp <= 0) return 1.0;
+        buffs = battleRuntime.field[targetIdx].buffs || [];
+    }
+
+    buffs.forEach(b => {
+        const bDef = editorData.buff[b.name];
+        if (!bDef) return;
+		if (bDef.trigger !== 'onTurnStart') return;
+        // 兼容新老配置的 effects 数组
+        let effects = bDef.effects || [];
+        if (bDef.effectLink && effects.length === 0) effects.push(bDef.effectLink);
+
+        effects.forEach(effName => {
+            const eff = editorData.effect[effName];
+            if (eff && eff.type === 'buff_atk') {
+                multi += parseFloat(eff.value) || 0; // 读取配置的小数(例如 +0.5 或 -0.2)
+            }
+        });
+    });
+    
+    return Math.max(0.1, multi); // 伤害倍率不能降成负数或0，最低锁定在 0.1 倍（刮痧）
+}
 
 	// 🌟 回合结算器 (敌我双方共同结算)
 	function processTurnStartBuffs() {
@@ -4268,6 +5081,7 @@ function enterTestMode() {
 				let pb = battleRuntime.playerBuffs[i];
 				if (pb.duration > 0) { pb.duration -= 1; if (pb.duration === 0) { addLog(`📉 玩家身上的【${pb.name}】已消散。`); battleRuntime.playerBuffs.splice(i, 1); } }
 			}
+			updatePlayerBuffsUI(); // ✨ 刷新 Buff 栏
 		}
 		// 2. 敌方全体状态结算
 		battleRuntime.field.forEach((enemy, idx) => {
@@ -4290,8 +5104,10 @@ function enterTestMode() {
 		let turnQteSuccessCount = 0; // ✨ 回合QTE完美数
         
         await new Promise(resolve => setTimeout(resolve, 600));
+		if (!isTestModeActive) return; // ✨ 异步苏醒后检查是否已退出！
 
         for (let i = 0; i < battleRuntime.field.length; i++) {
+		if (!isTestModeActive) return; // ✨ 异步苏醒后检查是否已退出！
             const currentEnemy = battleRuntime.field[i];
             if (currentEnemy.hp <= 0) continue; 
 
@@ -4330,22 +5146,22 @@ function enterTestMode() {
             showSkillBanner(eUiTextTemplate, eName, eTargetName, selectedAction.name);
 
             let isMelee = false;
-            let dashTime = 600; 
+            let meleeTiming = { duration: 800, offset1: 0.25, offset2: 0.75 }; // 初始化占位
             let vfxUrl = '';
-            let vfxDelays = [300]; // ✨ 变成数组！
+            let vfxDelays = [300]; 
 
             if (selectedAction.type === 'normal') {
                 isMelee = eData.atkType === 'melee';
-                dashTime = (parseFloat(eData.atkReturnDelay) || 0.6) * 1000;
+                // ✨ 使用新的分镜引擎解析
+                meleeTiming = parseMeleeTiming(eData.atkReturnDelay || '0.2/0.6/0.8');
                 vfxUrl = eData.atkHitEffect;
-                // ✨ 核心升级：特效时间也支持分号切割了！
                 vfxDelays = String(eData.atkHitDelay || '0.3').split(';').filter(n=>n.trim()!=='').map(n => parseFloat(n) * 1000); 
             } else {
                 if (eSkConf) {
                     isMelee = eSkConf.skillType === 'melee';
-                    dashTime = (parseFloat(eSkConf.returnDelay) || 0.6) * 1000;
+                    // ✨ 使用新的分镜引擎解析
+                    meleeTiming = parseMeleeTiming(eSkConf.returnDelay || '0.2/0.6/0.8');
                     vfxUrl = eSkConf.hitEffect;
-                    // ✨ 同上
                     vfxDelays = String(eSkConf.hitDelay || '0.3').split(';').filter(n=>n.trim()!=='').map(n => parseFloat(n) * 1000);
                 }
             }
@@ -4358,10 +5174,12 @@ function enterTestMode() {
                 eEl.style.zIndex = 40; 
                 eEl.animate([
                     { transform: 'translate(0, 0) scale(1)' },
-                    { transform: `translate(-45vw, 10vh) scale(5)`, offset: 0.15 },
-                    { transform: `translate(-45vw, 10vh) scale(5)`, offset: 0.85 },
+                    // ✨ 按照分镜轴：精准到达目标点
+                    { transform: `translate(-45vw, 10vh) scale(5)`, offset: meleeTiming.offset1 },
+                    // ✨ 按照分镜轴：死死黏在原地输出
+                    { transform: `translate(-45vw, 10vh) scale(5)`, offset: meleeTiming.offset2 },
                     { transform: 'translate(0, 0) scale(1)' }
-                ], { duration: dashTime, easing: 'ease-in-out' }).onfinish = () => eEl.style.zIndex = '';
+                ], { duration: meleeTiming.duration, easing: 'ease-in-out' }).onfinish = () => eEl.style.zIndex = '';
             }
 
             // ✨ 核心升级：遍历时间轴，连续生成多个受击特效！
@@ -4420,7 +5238,9 @@ function enterTestMode() {
             let hitPromises = hitTimings.map((hitTime, hitIndex) => {
                 return new Promise(resolveHit => {
                     let qte = qteList[hitIndex]; 
-                    let dmg = baseDamages[hitIndex];
+					// ✨ 在这里动态读取该敌人的攻击加成
+        const atkMulti = getEntityAtkMulti('enemy', i);
+        let dmg = Math.floor(baseDamages[hitIndex] * atkMulti); // ✨ 应用 Buff 攻击力倍率！
                     let qteSuccess = false;
                     // ✨ 核心修复：只有当存在 QTE 且时间大于 0 时，才处于未处理状态
                     let qteHandled = !(qte && qte.time > 0); 
@@ -4469,6 +5289,7 @@ function enterTestMode() {
                                     
                                     if (Math.abs(elapsed - qte.time) <= qte.tol) {
                                         qteSuccess = true;
+										battleRuntime.dodges_hit++;
 										actionQteSuccessCount++; // 招式成功+1
 										turnQteSuccessCount++;   // 回合成功+1
 										triggerBuff('onQteSuccess_Hit', 'player'); // ✨ 触发 1 级被动 (每次)
@@ -4569,6 +5390,7 @@ function enterTestMode() {
 
 			if (actionQteTotal > 0 && actionQteSuccessCount === actionQteTotal) {
 				addLog(`🌟 [${shortPlayerName}]完美化解了 [${eName}] 的整套猛攻！`);
+				battleRuntime.dodges_action++; // ✨ 记录优秀闪避 (一组)
 				triggerBuff('onQteSuccess_Action', 'player'); // 触发 2 级被动 (整组)
 			}
 
@@ -4607,15 +5429,22 @@ function enterTestMode() {
 		// ✨ 结算整个“敌方回合”的究极 QTE
 		if (turnQteTotal > 0 && turnQteSuccessCount === turnQteTotal) {
 			addLog(`👑 完美.本回合没有任何敌人触及[${shortPlayerName}].`);
+			battleRuntime.dodges_turn++; // ✨ 记录完美闪避 (全回合)
 			triggerBuff('onQteSuccess_Turn', 'player'); // 触发 3 级被动 (全回合)
 		}
 
         fillEnemyField(true);
         renderFieldUI(); 
         battleRuntime.playerAP = battleRuntime.playerMaxAP;
+		if (turnQteTotal > 0 && turnQteSuccessCount === turnQteTotal) {
+			addLog(`👑 完美.本回合没有任何敌人触及[${shortPlayerName}].`);
+			triggerBuff('onQteSuccess_Turn', 'player'); // 触发 3 级被动 (全回合)
+		}
         updatePlayerStatusUI();
 
         addLog(`[回合] 我方行动阶段，AP 已回满！`);
+		battleRuntime.currentTurn++; // ✨ 回合数增加！
+        updateBattleInfoUI();        // ✨ 刷新右上角面板！
 		processTurnStartBuffs();
         let waitPromise = null;
         if (editorData.uiSfx && editorData.uiSfx.turnStartAnim) waitPromise = playFullscreenCG(editorData.uiSfx.turnStartAnim);
@@ -4773,7 +5602,7 @@ function enterTestMode() {
         let customCam = null; let cgUrl = null; let sfxToPlay = null;
         // ✨ 新生代数组，替代了旧的 vfxDelay
         let vfxUrl = ''; let vfxDelays = [300]; 
-        let isMelee = false; let dashTime = 600;
+        let isMelee = false; let meleeTiming = null;;
         let actionName = actionItem.text;
         let uiTextTemplate = '[使用者] 行动了！';
 
@@ -4820,11 +5649,11 @@ function enterTestMode() {
             if (playerSkillConf) { customCam = playerSkillConf.camera; cgUrl = playerSkillConf.cg; }
             
             isMelee = skillConfig.skillType === 'melee';
-            dashTime = (parseFloat(skillConfig.returnDelay) || 0.6) * 1000;
+            meleeTiming = parseMeleeTiming(skillConfig.returnDelay || '0.2/0.6/0.8');
             vfxUrl = skillConfig.hitEffect;
             
-            if (skillConfig.effectLink && editorData.effect[skillConfig.effectLink]) effectsToProcess.push(editorData.effect[skillConfig.effectLink]);
-        } 
+           if (skillConfig.effectLink && editorData.effect[skillConfig.effectLink]) effectsToProcess.push(editorData.effect[skillConfig.effectLink]);
+        }
         // 🗡️ 分支 4：如果是【普攻】
         else {
             actionName = "普通攻击";
@@ -4832,10 +5661,10 @@ function enterTestMode() {
             sfxToPlay = pStats.normalAttackSfx;
             customCam = pStats.normalAttackCam;
             isMelee = pStats.atkType === 'melee';
-            dashTime = (parseFloat(pStats.atkReturnDelay) || 0.6) * 1000;
+            meleeTiming = parseMeleeTiming(pStats.atkReturnDelay || '0.2/0.6/0.8');
             vfxUrl = pStats.atkHitEffect;
             // 普攻特效也支持多段
-            vfxDelays = String(pStats.atkHitDelay || '0.3').split(';').filter(n=>n.trim()!=='').map(n=>parseFloat(n)*1000);
+           vfxDelays = String(pStats.atkHitDelay || '0.3').split(';').filter(n=>n.trim()!=='').map(n=>parseFloat(n)*1000);
         }
 
         if (battleRuntime.playerMP < costMP || battleRuntime.playerAP < costAP) {
@@ -4843,6 +5672,7 @@ function enterTestMode() {
             setTimeout(() => renderMenu('main'), 500); return;
         }
         battleRuntime.playerMP -= costMP; battleRuntime.playerAP -= costAP;
+		battleRuntime.totalApSpent += costAP;
         if (isItem) {
             battleRuntime.inventory[actionName]--;
             rebuildBattleMenuItems(); // ✨ 实时刷新背包UI！数量归零会自动清除该选项
@@ -4865,7 +5695,16 @@ function enterTestMode() {
         }
 
 		if (isMelee && targetIdx !== null && targetIdx !== 'player') {
-			document.querySelectorAll('.test-enemy').forEach(eEl => { eEl.animate([ { transform: 'translate(0, 0) scale(1)' }, { transform: `translate(-40vw, 5vh) scale(3.0)`, offset: 0.15 }, { transform: `translate(-40vw, 5vh) scale(3.0)`, offset: 0.85 }, { transform: 'translate(0, 0) scale(1)' } ], { duration: dashTime, easing: 'ease-in-out' }); });
+			document.querySelectorAll('.test-enemy').forEach(eEl => { 
+                eEl.animate([ 
+                    { transform: 'translate(0, 0) scale(1)' }, 
+                    // ✨ 按照分镜轴：把敌人拉近（模拟玩家突脸）
+                    { transform: `translate(-40vw, 5vh) scale(3.0)`, offset: meleeTiming.offset1 }, 
+                    // ✨ 按照分镜轴：死死停在面前供玩家殴打
+                    { transform: `translate(-40vw, 5vh) scale(3.0)`, offset: meleeTiming.offset2 }, 
+                    { transform: 'translate(0, 0) scale(1)' } 
+                ], { duration: meleeTiming.duration, easing: 'ease-in-out' }); 
+            });
 		}
 
         // ✨ 多段受击特效触发器
@@ -4880,11 +5719,14 @@ function enterTestMode() {
         playCameraAnim(finalCamName);
         toggleSpotlight(true, targetIdx);
 
-        // ✨ 算出整套动作总共需要多久
+       // ✨ 算出整套动作总共需要多久
         const maxHitTime = hitTimings.length > 0 ? Math.max(...hitTimings) : 0;
 
         // ✨ 循环遍历时间轴，发射每一段伤害！
         hitTimings.forEach((hitTime, hitIndex) => {
+            // 【修改处 1】：在每次判定伤害前，获取玩家当前的攻击倍率！
+            const atkMulti = getEntityAtkMulti('player');
+
             setTimeout(() => {
                 if (isExecute) {
                     if (hitIndex === 0) { // 处刑只杀一次
@@ -4894,26 +5736,34 @@ function enterTestMode() {
                         addLog(`🩸 [${target.name}] 被[${shortName}]处刑了.`);
                         spawnFloatingText(targetIdx, "被处刑", 'damage');
                         target.hp = 0; 
+						battleRuntime.totalExecutions++;
                         
                         if (eData.executeRewardHP) { battleRuntime.playerHP = Math.min(parseInt(pStats.hp), battleRuntime.playerHP + eData.executeRewardHP); spawnFloatingText('player', eData.executeRewardHP, 'heal_hp'); }
                         if (eData.executeRewardMP) { battleRuntime.playerMP = Math.min(parseInt(pStats.mp), battleRuntime.playerMP + eData.executeRewardMP); spawnFloatingText('player', eData.executeRewardMP, 'recover_mp'); }
-                        if (eData.executeRewardAP) { battleRuntime.playerAP = Math.min(parseInt(pStats.ap), battleRuntime.playerAP + eData.executeRewardAP); spawnFloatingText('player', eData.executeRewardAP, 'recover_ap'); }
+                        if (eData.executeRewardAP) { 
+                            battleRuntime.playerAP += eData.executeRewardAP; 
+                            spawnFloatingText('player', eData.executeRewardAP, 'recover_ap'); 
+                        }
                         
                         const el = document.getElementById(`test-enemy-${targetIdx}`);
                         if(el) { el.style.transform = 'translateX(20px) scale(0.8)'; el.style.filter = 'brightness(0) drop-shadow(0 0 20px red)'; }
-                    }
+                        updateFieldState();
+					}
                 } 
                 else if (isNormalAttack && targetIdx !== null && targetIdx !== 'player') {
                     // 普攻多段伤害解析 (例如：20/30)
                     let atkParts = String(pStats.atk || '50').split('/');
                     let dmg = parseInt(atkParts[hitIndex] || atkParts[0] || 50); 
-                    
+                    dmg = Math.floor(dmg * atkMulti);
                     const target = battleRuntime.field[targetIdx];
                     target.hp = Math.max(0, target.hp - dmg);
                     spawnFloatingText(targetIdx, dmg, 'damage');
+					triggerCombo(dmg);
+					battleRuntime.totalDmgOut += dmg;
                     
                     const eData = editorData.enemy[target.name];
                     setEntitySprite(targetIdx, target.hp > 0 ? eData.hitAnim : eData.deathAnim, false);
+					updateFieldState();
                     
                     if (target.hp === 0 && hitIndex === hitTimings.length - 1) addLog(`💀 [${target.name}] 死亡！`);
                     else addLog(`⚔[${shortName}]对 ${target.name} 造成 ${dmg} 伤害！`);
@@ -4922,21 +5772,40 @@ function enterTestMode() {
                     effectsToProcess.forEach(eff => {
                         // 技能多段伤害解析
                         const valParts = String(eff.value).split('/');
-                        const val = parseInt(valParts[hitIndex] || valParts[0] || 0);
+                        
+                        // 【修改处 3】：把 const 改成 let，因为它的数值需要被 Buff 修改
+                        let val = parseInt(valParts[hitIndex] || valParts[0] || 0);
 
-                        if (['heal_hp', 'recover_mp', 'recover_ap', 'heal_single'].includes(eff.type)) {
+                        // 【修改处 4】：技能伤害乘上 Buff 攻击力倍率！
+                        if (eff.type === 'damage_single' || eff.type === 'damage_all') {
+                            val = Math.floor(val * atkMulti);
+                        }
+
+                        // 【修改处 5】：在拦截条件里加入 'add_extra_ap'
+                        if (['heal_hp', 'recover_mp', 'recover_ap', 'add_extra_ap', 'heal_single'].includes(eff.type)) {
                             let typeText = eff.type.includes('hp') ? 'HP' : (eff.type.includes('mp') ? 'MP' : 'AP');
                             if(hitIndex === 0) addLog(`💚 [${shortName}] 恢复了 ${val} 点 ${typeText}！`);
+                            
                             if (eff.type === 'heal_hp' || eff.type === 'heal_single') { battleRuntime.playerHP = Math.min(parseInt(pStats.hp), battleRuntime.playerHP + val); spawnFloatingText('player', val, 'heal_hp'); }
                             if (eff.type === 'recover_mp') { battleRuntime.playerMP = Math.min(parseInt(pStats.mp), battleRuntime.playerMP + val); spawnFloatingText('player', val, 'recover_mp'); }
+                            
+                            // 常规 AP 恢复 (不超上限)
                             if (eff.type === 'recover_ap') { battleRuntime.playerAP = Math.min(parseInt(pStats.ap||3), battleRuntime.playerAP + val); spawnFloatingText('player', val, 'recover_ap'); }
+                            
+                            // 【修改处 6】：爆气额外 AP 恢复 (直接相加，无视上限)
+                            if (eff.type === 'add_extra_ap') { battleRuntime.playerAP += val; spawnFloatingText('player', val, 'recover_ap'); }
+                            
                             document.getElementById('player').style.filter = 'brightness(1.5) drop-shadow(0 0 20px #00ff00)'; setTimeout(() => document.getElementById('player').style.filter = '', 500);
                         } 
                         else if (eff.type === 'damage_single' && targetIdx !== null && targetIdx !== 'player') {
                             const target = battleRuntime.field[targetIdx]; target.hp = Math.max(0, target.hp - val);
                             spawnFloatingText(targetIdx, val, 'damage');
+							triggerCombo(val);
+							battleRuntime.totalDmgOut += val;
                             setEntitySprite(targetIdx, target.hp > 0 ? editorData.enemy[target.name].hitAnim : editorData.enemy[target.name].deathAnim, false); 
-                            
+                            updateFieldState();
+							
+							
                             if (target.hp === 0 && hitIndex === hitTimings.length - 1) addLog(`💀 [${target.name}] 被击败了！`);
                             addLog(`💥 [${shortName}] 释放 [${actionName}]，第${hitIndex+1}段命中，造成 ${val} 点伤害！`);
                         } 
@@ -4945,22 +5814,22 @@ function enterTestMode() {
                             battleRuntime.field.forEach((e, idx) => {
                                 if (e.hp > 0) { 
                                     e.hp = Math.max(0, e.hp - val); spawnFloatingText(idx, val, 'damage'); 
+									triggerCombo(val);
+									battleRuntime.totalDmgOut += val;
                                     setEntitySprite(idx, e.hp > 0 ? editorData.enemy[e.name].hitAnim : editorData.enemy[e.name].deathAnim, false); 
                                     if (e.hp === 0 && hitIndex === hitTimings.length - 1) addLog(`💀 [${e.name}] 被击败了！`); 
                                 }
                             });
+							updateFieldState();
                         }
                     });
                 }
-
-                updatePlayerStatusUI();
-                updateFieldState(); 
-                toggleSpotlight(true, targetIdx); // 每打一段都刷新一下聚光灯
             }, hitTime);
         });
 
         // ✨ 收尾工程：等待最后一段伤害也打完之后，再结算死亡、重置镜头、交接回合
         setTimeout(() => {
+		if (!isTestModeActive) return;
             
             // ⬇️ ===== 新增的第四步代码从这里开始 ===== ⬇️
             
@@ -5016,6 +5885,7 @@ function enterTestMode() {
             const remainingWaitTime = Math.max(800, camDuration - maxHitTime + 200);
 
             setTimeout(async () => {
+			if (!isTestModeActive) return;
                 toggleSpotlight(false); 
                 
                 setEntitySprite('player', pStats.turnIdleAnim, true);
@@ -5028,7 +5898,7 @@ function enterTestMode() {
 
                 if (allFieldDead && poolEmpty) {
                     addLog("✨ VICTORY! 所有敌人均已消灭！");
-                    setTimeout(() => { sendBattleResult('win'); exitTestMode(); }, 1200);
+                    setTimeout(() => { showVictoryScreen(); }, 1200); 
                 } else if (battleRuntime.playerAP > 0 && !allFieldDead) {
                     const canContinue = isItem ? (battleRuntime.inventory[actionName] > 0) : (!isNormalAttack && skillConfig ? battleRuntime.playerMP >= (parseInt((skillConfig.cost||"0").replace(/[^0-9]/g, ''))||0) : true);
                     
@@ -5173,6 +6043,103 @@ function enterTestMode() {
             }
 		}
 	});
+	
+	// ==========================================
+	// 记录全局折叠状态，从本地缓存读取，刷新/重进页面不丢失
+	let collapsedFolders = JSON.parse(localStorage.getItem('rpg_folder_state') || '{}');
+
+	// 智能获取当前激活的文件夹层级 (解决资源子类的独立文件夹问题)
+	function getActualFolderTab() {
+		return (currentTab === 'resource' && currentResourceCategory) ? `resource_${currentResourceCategory}` : currentTab;
+	}
+
+	function addNewFolder() {
+		if (currentTab === 'level') { alert("关卡不支持文件夹"); return; }
+		if (currentTab === 'resource' && !currentResourceCategory) { alert("请先进入图片/音频/视频分类中，再新建文件夹！"); return; }
+
+		const name = prompt("请输入新文件夹名称:");
+		if (!name) return;
+
+		if (!editorData._folders) editorData._folders = {};
+		const fTab = getActualFolderTab();
+		if (!editorData._folders[fTab]) editorData._folders[fTab] = [];
+
+		if (editorData._folders[fTab].includes(name)) { alert("文件夹已存在！"); return; }
+
+		pushHistory();
+		editorData._folders[fTab].push(name);
+		saveToLocal(true);
+		renderList();
+	}
+
+	function renameFolder(e, oldName) {
+		e.stopPropagation();
+		const newName = prompt("请输入新文件夹名称:", oldName);
+		if (!newName || newName === oldName) return;
+
+		pushHistory();
+		const fTab = getActualFolderTab();
+		
+		// 1. 修改显式文件夹列表里的名字
+		if (editorData._folders && editorData._folders[fTab]) {
+			const idx = editorData._folders[fTab].indexOf(oldName);
+			if (idx > -1) editorData._folders[fTab][idx] = newName;
+		}
+
+		// 2. 批量修改该文件夹下所有实体的归属
+		const items = Array.isArray(editorData[currentTab]) ? editorData[currentTab] : Object.keys(editorData[currentTab]);
+		items.forEach(item => {
+			const obj = Array.isArray(editorData[currentTab]) ? null : editorData[currentTab][item];
+			if (obj && obj._folder === oldName) obj._folder = newName;
+		});
+
+		// 3. ✨ 同步折叠状态 (带有分类前缀，防止同名文件夹冲突)
+		const oldKey = fTab + '_' + oldName;
+		const newKey = fTab + '_' + newName;
+		if (collapsedFolders[oldKey] !== undefined) { 
+			collapsedFolders[newKey] = collapsedFolders[oldKey]; 
+			delete collapsedFolders[oldKey]; 
+			localStorage.setItem('rpg_folder_state', JSON.stringify(collapsedFolders));
+		}
+        
+		saveToLocal(true); 
+        renderList();
+	}
+
+	function deleteFolder(e, folderName) {
+		e.stopPropagation();
+		if (!confirm(`确定要删除文件夹 [${folderName}] 吗？\n(⚠️ 里面的实体不会被删，会被移出到根目录)`)) return;
+
+		pushHistory();
+		const fTab = getActualFolderTab();
+
+		if (editorData._folders && editorData._folders[fTab]) {
+			const idx = editorData._folders[fTab].indexOf(folderName);
+			if (idx > -1) editorData._folders[fTab].splice(idx, 1);
+		}
+
+		const items = Array.isArray(editorData[currentTab]) ? editorData[currentTab] : Object.keys(editorData[currentTab]);
+		items.forEach(item => {
+			const obj = Array.isArray(editorData[currentTab]) ? null : editorData[currentTab][item];
+			if (obj && obj._folder === folderName) delete obj._folder;
+		});
+
+		saveToLocal(true); renderList();
+	}
+
+	// 覆写旧的 toggleFolder 以支持带有唯一ID的本地记忆功能
+	window.toggleFolder = function(headerEl, folderUniqueKey) {
+		const container = headerEl.nextElementSibling;
+		if (container.style.display === 'none') {
+			container.style.display = 'block'; headerEl.classList.remove('collapsed');
+			collapsedFolders[folderUniqueKey] = false;
+		} else {
+			container.style.display = 'none'; headerEl.classList.add('collapsed');
+			collapsedFolders[folderUniqueKey] = true;
+		}
+		// ✨ 同步保存到浏览器缓存
+		localStorage.setItem('rpg_folder_state', JSON.stringify(collapsedFolders));
+	};
 	
 	/* =========================================================
 	   ✨ 核心：外部通讯接口与引导序列 (Boot Sequence)
@@ -5660,6 +6627,265 @@ document.addEventListener('keyup', (e) => {
         if (isCharInfoPanelOpen) toggleCharInfoPanel(); // 松开就关闭
     }
 });
+
+     // ==========================================
+	// ✨ 全局拖拽排序引擎 (Drag & Drop)
+	// ==========================================
+	let draggedEl = null;
+
+	window.handleDragStart = function(e) {
+		if (!e.currentTarget.classList.contains('draggable-item')) return;
+		draggedEl = e.currentTarget;
+		e.dataTransfer.effectAllowed = 'move';
+		setTimeout(() => draggedEl.classList.add('dragging'), 0); // 延迟一点加样式，保证原生虚影好看
+	};
+
+	window.handleDragEnd = function(e) {
+		if (draggedEl) draggedEl.classList.remove('dragging');
+		document.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(el => {
+			el.classList.remove('drag-over-top', 'drag-over-bottom');
+		});
+		draggedEl = null;
+	};
+
+	window.handleDragOver = function(e) {
+		e.preventDefault(); // 必须阻止默认行为才能触发 drop
+		if (!draggedEl) return;
+		const target = e.currentTarget;
+		if (target === draggedEl) return;
+
+		target.classList.remove('drag-over-top', 'drag-over-bottom');
+		const rect = target.getBoundingClientRect();
+		const mid = rect.top + rect.height / 2;
+		
+		if (e.clientY < mid) target.classList.add('drag-over-top');
+		else target.classList.add('drag-over-bottom');
+	};
+
+	window.handleDrop = function(e, scope) {
+		e.preventDefault();
+		if (!draggedEl) return;
+		const target = e.currentTarget;
+		target.classList.remove('drag-over-top', 'drag-over-bottom');
+		
+		if (target === draggedEl) return;
+
+		const rect = target.getBoundingClientRect();
+		const mid = rect.top + rect.height / 2;
+		const container = target.parentNode;
+		
+		// 精准插入节点
+		if (e.clientY < mid) container.insertBefore(draggedEl, target);
+		else container.insertBefore(draggedEl, target.nextSibling);
+		
+		// 如果是侧边栏，触发全局对象顺序重构并自动吸附进新文件夹
+		if (scope === 'sidebar') {
+			const targetFolderDiv = draggedEl.closest('.list-folder');
+			const newFolder = targetFolderDiv ? targetFolderDiv.dataset.foldername : '';
+			const itemName = draggedEl.dataset.itemname;
+			
+			// 瞬间修改归属
+			if (editorData[currentTab][itemName]) editorData[currentTab][itemName]._folder = newFolder;
+			saveSidebarOrder();
+		}
+	};
+
+	// 瞬间将 DOM 的物理顺序写入 JSON 数据底层 (✨ 终极防丢失版)
+	window.saveSidebarOrder = function() {
+		if (currentTab === 'resource' && !currentResourceCategory) return;
+		const newObj = {};
+		
+		// 1. 先把当前面板里肉眼可见的实体，按拖拽后的顺序存入新对象
+		document.querySelectorAll('#editor-list .list-item').forEach(el => {
+			const key = el.dataset.itemname;
+			if (key && editorData[currentTab][key]) {
+				newObj[key] = editorData[currentTab][key];
+			}
+		});
+
+		// 2. ✨ 致命 Bug 修复兜底：
+		// 检查原始数据里的所有实体，如果它没有出现在上面的 newObj 里
+		// (说明它被搜索框隐藏了，或者它是属于其他资源分类的实体)，
+		// 就原封不动地把它追加到底部，绝对不能把它删掉！
+		Object.keys(editorData[currentTab]).forEach(key => {
+			if (!newObj.hasOwnProperty(key)) {
+				newObj[key] = editorData[currentTab][key];
+			}
+		});
+
+		editorData[currentTab] = newObj;
+		saveToLocal(false);
+	};
+
+	// ==========================================
+	// ✨ 全局折叠面板引擎 (Collapse)
+	// ==========================================
+	window.toggleCollapse = function(containerId, headerEl) {
+		const container = document.getElementById(containerId);
+		if (!container) return;
+		if (container.style.display === 'none') {
+			container.style.display = 'block'; headerEl.classList.remove('collapsed');
+		} else {
+			container.style.display = 'none'; headerEl.classList.add('collapsed');
+		}
+	};
+// ==========================================
+	// ✨ 全新打磨：连击计分板引擎 (Combo System)
+	// ==========================================
+	let currentCombo = 0;
+	let currentComboDmg = 0;
+	let maxComboAchieved = 0; 
+	let totalHitsGained = 0; // 新增：用于胜利界面统计总命中次数
+	let comboTimeout = null;
+
+	function triggerCombo(dmg) {
+		currentCombo++;
+		currentComboDmg += dmg;
+		totalHitsGained++; // 累加
+		if (currentCombo > maxComboAchieved) maxComboAchieved = currentCombo;
+
+		const hud = document.getElementById('combo-hud');
+		const numEl = document.getElementById('combo-num');
+		const evalEl = document.getElementById('combo-eval');
+		const dmgEl = document.getElementById('combo-dmg-val');
+
+		hud.classList.add('active');
+		numEl.innerText = currentCombo;
+		dmgEl.innerText = currentComboDmg;
+
+		// 触发全新的现代爆跳动画
+		numEl.classList.remove('combo-hit-anim');
+		void numEl.offsetWidth; 
+		numEl.classList.add('combo-hit-anim');
+
+		// 智能评价，绑定新的 show 样式
+		if (currentCombo >= 15) { evalEl.innerText = 'ULTRA!!'; evalEl.classList.add('show'); evalEl.style.color = '#ff00ff'; evalEl.style.textShadow = '0 0 10px #ff00ff';}
+		else if (currentCombo >= 10) { evalEl.innerText = 'EXCELLENT!'; evalEl.classList.add('show'); evalEl.style.color = '#ffd700'; evalEl.style.textShadow = '0 0 10px #ffd700';}
+		else if (currentCombo >= 5) { evalEl.innerText = 'GREAT!'; evalEl.classList.add('show'); evalEl.style.color = '#00ff00'; evalEl.style.textShadow = '0 0 10px #00ff00';}
+		else { evalEl.classList.remove('show'); }
+
+		// 打击感屏幕震颤保持不变
+		const stage = document.getElementById('battle-stage');
+		stage.style.transform = `translate(${(Math.random()-0.5)*15}px, ${(Math.random()-0.5)*15}px) scale(1.02)`;
+		setTimeout(() => { stage.style.transform = ''; }, 50);
+
+		if (comboTimeout) clearTimeout(comboTimeout);
+		comboTimeout = setTimeout(() => {
+			hud.classList.remove('active');
+			currentCombo = 0;
+			currentComboDmg = 0;
+		}, 1800);  // 稍微加长连击判定时间，体验更好
+	}
+
+// ==========================================
+	// ✨ 全新打磨：战斗结算界面引擎 (Victory Screen)
+	// ==========================================
+	function showVictoryScreen() {
+		const audio = document.getElementById('battle-bgm');
+		if (audio) audio.pause();
+
+		const pStats = editorData.character[activePlayer];
+		const hpPercent = battleRuntime.playerHP / parseInt(pStats.hp);
+		const hpPercVal = Math.round(hpPercent * 100);
+		const turns = battleRuntime.currentTurn || 1;
+		
+		// 获取战斗数据
+		const totalDmgOut = battleRuntime.totalDmgOut || 0; 
+		const apSpent = battleRuntime.totalApSpent || 0; 
+		const dHit = battleRuntime.dodges_hit || 0;
+		const dAction = battleRuntime.dodges_action || 0;
+		const dTurn = battleRuntime.dodges_turn || 0;
+		const execCount = battleRuntime.totalExecutions || 0;
+
+		// ✨ 动态评级逻辑
+		let rank = 'C'; 
+		const ranksConfig = (editorData.level[currentLevelName] && editorData.level[currentLevelName].ranks) || null;
+		
+		const checkRank = (rData) => {
+			if (!rData) return false;
+			// 如果该级别所有条件都是空的，直接判定不满足，防止一路全空给了S
+			if (!rData.hp && !rData.turns && !rData.combo && !rData.ap && !rData.dodgeHit && !rData.dodgeAction && !rData.dodgeTurn) return false;
+			
+			if (rData.hp !== '' && hpPercVal < parseInt(rData.hp)) return false;
+			if (rData.turns !== '' && turns > parseInt(rData.turns)) return false;
+			if (rData.combo !== '' && maxComboAchieved < parseInt(rData.combo)) return false;
+			if (rData.ap !== '' && apSpent > parseInt(rData.ap)) return false;
+			if (rData.dodgeHit !== '' && dHit < parseInt(rData.dodgeHit)) return false;
+			if (rData.dodgeAction !== '' && dAction < parseInt(rData.dodgeAction)) return false;
+			if (rData.dodgeTurn !== '' && dTurn < parseInt(rData.dodgeTurn)) return false;
+			return true;
+		};
+
+		if (ranksConfig) {
+			if (checkRank(ranksConfig.S)) rank = 'S';
+			else if (checkRank(ranksConfig.A)) rank = 'A';
+			else if (checkRank(ranksConfig.B)) rank = 'B';
+		} else {
+			// 兜底的默认评级
+			if (hpPercent >= 0.9 && turns <= 3) rank = 'S'; 
+			else if (hpPercent >= 0.6 && turns <= 5) rank = 'A';
+			else if (hpPercent >= 0.3) rank = 'B';
+		}
+
+		let portraitUrl = pStats.portrait || pStats.idleAnim; 
+		const shortPlayerName = activePlayer.split(' ')[0];
+
+		const vicDiv = document.createElement('div');
+		vicDiv.id = 'victory-screen';
+		vicDiv.innerHTML = `
+			<div id="victory-bg-text">INTERFACE</div>
+			<div class="victory-panel">
+				<div class="victory-mvp-area">
+					${renderMediaTag(portraitUrl, "", true, false)}
+					<div class="victory-mvp-label">${shortPlayerName} // MVP</div>
+				</div>
+				<div class="victory-data-area">
+					<div class="victory-title-row">
+						<span class="victory-main-title">战 斗 胜 利</span>
+						<span class="victory-sub-title">结算信息</span>
+					</div>
+					
+					<div class="victory-rank-row">
+						<span class="victory-rank-label">关卡评级:</span>
+						<span class="victory-rank-val rank-${rank.toLowerCase()}">${rank}</span>
+					</div>
+					
+					<div class="victory-stats-grid">
+						<div class="v-stat-item"><span class="v-stat-label">回合数</span><span class="v-stat-val highlight">${turns}</span></div>
+						<div class="v-stat-item"><span class="v-stat-label">最高连击</span><span class="v-stat-val highlight">${maxComboAchieved} Hits</span></div>
+						<div class="v-stat-item"><span class="v-stat-label">总输出</span><span class="v-stat-val">${totalDmgOut}</span></div>
+						<div class="v-stat-item"><span class="v-stat-label">能量消耗</span><span class="v-stat-val">${apSpent}</span></div>
+						<div class="v-stat-item"><span class="v-stat-label" style="color:#ff4444;">处刑击杀</span><span class="v-stat-val" style="color:#ff4444; font-size:22px;">${execCount}</span></div>
+						
+						<div class="v-stat-item"><span class="v-stat-label" style="color:#fff;">普通闪避 (每次)</span><span class="v-stat-val" style="color:#00ff00;">${dHit}</span></div>
+						<div class="v-stat-item"><span class="v-stat-label" style="color:#ffd700;">优秀闪避 (每组)</span><span class="v-stat-val" style="color:#ffd700;">${dAction}</span></div>
+						<div class="v-stat-item"><span class="v-stat-label" style="color:#ff00ff;">完美闪避 (整回合)</span><span class="v-stat-val" style="color:#ff00ff;">${dTurn}</span></div>
+						
+						<div class="v-stat-item"><span class="v-stat-label">剩余血量</span><span class="v-stat-val">${hpPercVal}%</span></div>
+					</div>
+					
+					<button class="victory-btn" style="margin-top:auto;" onclick="exitVictoryScreen()">继续</button>
+				</div>
+			</div>
+		`;
+		document.body.appendChild(vicDiv);
+		
+		void vicDiv.offsetWidth;
+		vicDiv.classList.add('active');
+	}
+
+	function exitVictoryScreen() {
+		const vicDiv = document.getElementById('victory-screen');
+		if (vicDiv) {
+			vicDiv.classList.remove('active');
+			setTimeout(() => {
+				vicDiv.remove();
+				totalHitsGained = 0; // 清空累计点击
+				sendBattleResult('win'); 
+				exitTestMode();          
+			}, 500);
+		}
+	}
 
 /* =========================================================
    ✨ 主机级阻尼菜单：鼠标滚轮 (Mouse Wheel) 驱动系统
